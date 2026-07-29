@@ -1,0 +1,111 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
+        xmlns:vis="using:Kometra.ViewModels.Visualization"
+        xmlns:analysis="using:Kometra.Models.Processing.Analysis"
+        xmlns:conv="clr-namespace:Kometra.Converters"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+        x:Class="Kometra.Views.PhotometricClippingToolView"
+        x:DataType="vm:PhotometricClippingToolViewModel"
+        Title="Taglio Fotometrico"
+        Background="{DynamicResource AppBackgroundBrush}"
+        WindowStartupLocation="CenterOwner"
+        Width="1100" Height="700">
+
+    <Window.Resources>
+        <conv:EqualityConverter x:Key="EqualityConverter" />
+    </Window.Resources>
+
+    <Grid ColumnDefinitions="350, *">
+        
+        <!-- COLONNA SINISTRA: Pannello di Controllo -->
+        <Border Grid.Column="0" Background="{DynamicResource PanelBackgroundBrush}" Padding="20">
+            <Grid RowDefinitions="Auto, *, Auto">
+                
+                <StackPanel Grid.Row="0" Spacing="15">
+                    <TextBlock Text="TAGLIO FOTOMETRICO" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Isola le strutture scartando i pixel fuori soglia." TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    
+                    <Separator Background="{DynamicResource SeparatorBrush}" Margin="0,10"/>
+
+                    <!-- Selettore Modalità -->
+                    <TextBlock Text="Modalità di Taglio" FontWeight="SemiBold"/>
+                    <ComboBox HorizontalAlignment="Stretch" SelectedItem="{Binding SelectedMode}">
+                        <analysis:PhotometricClippingMode>SigmaThresh</analysis:PhotometricClippingMode>
+                        <analysis:PhotometricClippingMode>AbsoluteAdu</analysis:PhotometricClippingMode>
+                    </ComboBox>
+
+                    <!-- Selettore Output -->
+                    <TextBlock Text="Modalità di Output" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                    <ComboBox HorizontalAlignment="Stretch" SelectedItem="{Binding SelectedOutputMode}">
+                        <analysis:ClippingOutputMode>ZeroedPixels</analysis:ClippingOutputMode>
+                        <analysis:ClippingOutputMode>NanPixels</analysis:ClippingOutputMode>
+                        <analysis:ClippingOutputMode>BinaryMask</analysis:ClippingOutputMode>
+                    </ComboBox>
+
+                    <Separator Background="{DynamicResource SeparatorBrush}" Margin="0,10"/>
+
+                    <!-- Parametri per Modalità SIGMA -->
+                    <StackPanel Spacing="10" IsVisible="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static analysis:PhotometricClippingMode.SigmaThresh}}">
+                        <TextBlock Text="Soglia Inferiore (Sigma)" />
+                        <Grid ColumnDefinitions="*, 50">
+                            <Slider Grid.Column="0" Minimum="0" Maximum="10" Value="{Binding LowerSigma}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding LowerSigma, StringFormat=\{0:F1\}}" Margin="10,0,0,0"/>
+                        </Grid>
+
+                        <TextBlock Text="Soglia Superiore (Sigma)" />
+                        <Grid ColumnDefinitions="*, 50">
+                            <Slider Grid.Column="0" Minimum="0" Maximum="200" Value="{Binding UpperSigma}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding UpperSigma, StringFormat=\{0:F1\}}" Margin="10,0,0,0"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Parametri per Modalità ADU -->
+                    <StackPanel Spacing="10" IsVisible="{Binding SelectedMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static analysis:PhotometricClippingMode.AbsoluteAdu}}">
+                        <TextBlock Text="Valore Minimo (ADU)" />
+                        <Grid ColumnDefinitions="*, 70">
+                            <Slider Grid.Column="0" Minimum="0" Maximum="65535" Value="{Binding MinAdu}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding MinAdu, StringFormat=\{0:F0\}}" Margin="10,0,0,0"/>
+                        </Grid>
+
+                        <TextBlock Text="Valore Massimo (ADU)" />
+                        <Grid ColumnDefinitions="*, 70">
+                            <Slider Grid.Column="0" Minimum="0" Maximum="65535" Value="{Binding MaxAdu}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding MaxAdu, StringFormat=\{0:F0\}}" Margin="10,0,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Comandi Esecutivi (Ancorati in basso) -->
+                <Grid Grid.Row="2" ColumnDefinitions="*, *" Margin="0,20,0,0">
+                    <Button Grid.Column="0" Content="Calcola Anteprima" Command="{Binding CalculatePreviewCommand}" HorizontalAlignment="Stretch" Margin="0,0,5,0" Classes="Secondary"/>
+                    <Button Grid.Column="1" Content="Applica" Command="{Binding ApplyCommand}" HorizontalAlignment="Stretch" Margin="5,0,0,0" Classes="Primary"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- COLONNA DESTRA: Viewport e Overlay di Caricamento -->
+        <Grid Grid.Column="1" Background="{DynamicResource WorkspaceBackgroundBrush}">
+            
+            <!-- Viewport per l'immagine: Usa il DataTemplate per disegnare il FitsRenderer -->
+            <ContentControl Content="{Binding Viewport}" Margin="10">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="{x:Type vis:FitsRenderer}">
+                        <Image Source="{Binding Image}" Stretch="Uniform" />
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+
+            <!-- Overlay di Caricamento -->
+            <Border Background="#80000000" IsVisible="{Binding IsLoading}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="15">
+                    <ProgressBar IsIndeterminate="{Binding ProgressPercentage, Converter={StaticResource EqualityConverter}, ConverterParameter=0}" 
+                                 Value="{Binding ProgressPercentage}" Minimum="0" Maximum="100" Width="200"/>
+                    <TextBlock Text="{Binding ProgressText}" Foreground="White" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

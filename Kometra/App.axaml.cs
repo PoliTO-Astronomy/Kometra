@@ -104,7 +104,8 @@ public class App : Application
         services.AddSingleton<IStructureShapeEngine, StructureShapeEngine>();
         services.AddSingleton<ISegmentationEngine, SegmentationEngine>();
         services.AddSingleton<IInpaintingEngine, InpaintingEngine>();
-
+        services.AddSingleton<IPhotometryEngine, PhotometryEngine>();
+        
         // --- 4. Servizi di Dominio & Multimedia ---
         services.AddSingleton<IPlateSolvingService, PlateSolvingService>();
         services.AddSingleton<IAlignmentService, AlignmentService>(); 
@@ -129,7 +130,8 @@ public class App : Application
         services.AddSingleton<IMaskingCoordinator, MaskingCoordinator>();
         services.AddSingleton<IVideoExportCoordinator, VideoExportCoordinator>();
         services.AddSingleton<IExportCoordinator, ExportCoordinator>();
-        services.AddSingleton<INodeStructureCoordinator, NodeStructureCoordinator>(); // <-- AGGIUNTO
+        services.AddSingleton<INodeStructureCoordinator, NodeStructureCoordinator>(); 
+        services.AddSingleton<IPhotometryCoordinator, PhotometryCoordinator>();
 
         // --- 6. Factories ---
         services.AddSingleton<INodeViewModelFactory, NodeViewModelFactory>();

@@ -210,6 +210,7 @@ public partial class BoardViewModel : ObservableObject
         ShowLocalContrastWindowCommand.NotifyCanExecuteChanged();
         ShowStarMaskingWindowCommand.NotifyCanExecuteChanged();
         ShowCropWindowCommand.NotifyCanExecuteChanged();
+        ShowPhotometricClippingWindowCommand.NotifyCanExecuteChanged();
 
         AddNodesCommand.NotifyCanExecuteChanged();
         SubtractNodesCommand.NotifyCanExecuteChanged();
@@ -326,6 +327,18 @@ public partial class BoardViewModel : ObservableObject
     // ---------------------------------------------------------------------------
 
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowPhotometricClippingWindow()
+    {
+        await RunGenericProcessing(async (files, mode) => 
+        {
+            var paths = await _windowService.ShowPhotometricClippingWindowAsync(files, mode);
+            
+            return paths != null ? (paths, "(Taglio Fotometrico)") : null;
+            
+        }, "Taglio Fotometrico");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
     private async Task ShowCropWindow()
     {
         await RunGenericProcessing(async (files, mode) => 
@@ -426,7 +439,7 @@ public partial class BoardViewModel : ObservableObject
             
             RegisterProcessingResult(newNode, imgNode, resultPaths[0], undoLabel);
         }
-        catch (Exception ex) { Debug.WriteLine($"Errore: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"ERRORE NASCOSTO: {ex.ToString()}"); }
     }
 
     private string GetEnhancementSuffix(ImageEnhancementMode mode)
@@ -580,8 +593,7 @@ public partial class BoardViewModel : ObservableObject
         var (paths, separateNodes) = result.Value;
         var tasks = paths.Select(async path => { 
             var header = await _dataManager.GetHeaderOnlyAsync(path); 
-            var date = _metadataService.GetObservationDate(header) ?? DateTime.MinValue; 
-            return (Path: path, Date: date); 
+            var date = header != null ? _metadataService.GetObservationDate(header) ?? DateTime.MinValue : DateTime.MinValue;            return (Path: path, Date: date); 
         });
         var results = await Task.WhenAll(tasks);
         var sortedPaths = results.OrderBy(x => x.Date).Select(x => x.Path).ToList();

@@ -30,6 +30,7 @@ public interface IWindowService
     Task<List<string>?> ShowPosterizationWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task<List<string>?> ShowCropToolWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task ShowSettingsWindowAsync();
+    Task<List<string>?> ShowPhotometricClippingWindowAsync(List<FitsFileReference> files, VisualizationMode mode);
     
     // Enhancement
     Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowRadialEnhancementWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);

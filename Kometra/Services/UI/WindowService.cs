@@ -28,6 +28,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ImportViewModel = Kometra.ViewModels.ImportExport.ImportViewModel;
 using SettingsViewModel = Kometra.ViewModels.Settings.SettingsViewModel;
 using VideoExportToolViewModel = Kometra.ViewModels.ImportExport.VideoExportToolViewModel;
+using Kometra.Services.Fits.Conversion;
 
 namespace Kometra.Services.UI;
 
@@ -304,6 +305,25 @@ public class WindowService : IWindowService
 
         // Gestione dell'evento RequestClose e apertura modale
         await ShowDialogAsync(view, viewModel);
+    }
+
+    public async Task<List<string>?> ShowPhotometricClippingWindowAsync(List<FitsFileReference> files, VisualizationMode mode)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        // Risoluzione delle dipendenze dal contenitore globale
+        var coordinator = _serviceProvider.GetRequiredService<IPhotometryCoordinator>();
+        var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
+        var converter = _serviceProvider.GetRequiredService<IFitsOpenCvConverter>();
+
+        // Creazione del ViewModel passando i file e i servizi
+        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter);
+        
+        // Creazione della View e assegnazione del DataContext
+        var view = new PhotometricClippingToolView { DataContext = viewModel };
+
+        // Visualizzazione della finestra modale e restituzione dei percorsi solo se l'utente preme "Applica"
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
     }
 
     // =======================================================================
