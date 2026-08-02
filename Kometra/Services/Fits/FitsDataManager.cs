@@ -7,8 +7,10 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Kometra.Models.Fits;
 using Kometra.Models.Fits.Structure;
+using Kometra.Services.Fits.Conversion; // Necessario per IFitsOpenCvConverter
 using Kometra.Services.Fits.IO;
 using Microsoft.Extensions.Caching.Memory;
+using OpenCvSharp; // Necessario per Mat
 
 namespace Kometra.Services.Fits;
 
@@ -16,14 +18,17 @@ public class FitsDataManager : IFitsDataManager
 {
     private readonly IFitsIoService _ioService;
     private readonly IMemoryCache _cache;
+    private readonly IFitsOpenCvConverter _openCvConverter; //  Per la conversione in Mat
     
     private readonly ConcurrentBag<string> _tempFilesTracker = new();
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(10);
 
-    public FitsDataManager(IFitsIoService ioService, IMemoryCache cache)
+    // [MODIFICA COSTRUTTORE] Aggiunta iniezione di IFitsOpenCvConverter
+    public FitsDataManager(IFitsIoService ioService, IMemoryCache cache, IFitsOpenCvConverter openCvConverter)
     {
         _ioService = ioService ?? throw new ArgumentNullException(nameof(ioService));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _openCvConverter = openCvConverter ?? throw new ArgumentNullException(nameof(openCvConverter));
     }
 
     // =======================================================================
@@ -38,10 +43,10 @@ public class FitsDataManager : IFitsDataManager
         {
             entry.SlidingExpiration = CacheExpiration;
 
-            // [MODIFICA MEF] Leggiamo TUTTI gli HDU invece di solo Header+Pixel fissi.
+            //  Leggiamo TUTTI gli HDU invece di solo Header+Pixel fissi.
             // Nota: Casting esplicito a FitsIoService se l'interfaccia IFitsIoService 
             // non è stata ancora aggiornata con ReadAllHdusAsync. 
-            // L'ideale è aver aggiornato anche l'interfaccia.
+            // L'ideale è aver aver aggiornato anche l'interfaccia.
             var hdus = await ((FitsIoService)_ioService).ReadAllHdusAsync(path);
 
             if (hdus == null || hdus.Count == 0)
@@ -78,7 +83,7 @@ public class FitsDataManager : IFitsDataManager
         // Scrittura fisica su disco (Single HDU per ora)
         await _ioService.WriteFileAsync(path, pixels, header);
 
-        // [MODIFICA MEF] Per aggiornare la cache, dobbiamo creare un pacchetto
+        //  Per aggiornare la cache, dobbiamo creare un pacchetto
         // conforme alla nuova struttura (List<FitsHdu>).
         // Creiamo una lista con un singolo HDU.
         var singleHdu = new FitsHdu(header, pixels, false);
@@ -146,6 +151,30 @@ public class FitsDataManager : IFitsDataManager
             _ioService.TryDeleteFile(tempPath);
         }
         while (_tempFilesTracker.TryTake(out _)) { }
+    }
+
+    // =======================================================================
+    // 5. UTILITY DI CONVERSIONE E ACCESSO PACCHETTI [NUOVI METODI]
+    // =======================================================================
+
+    /// <summary>
+    /// Alias convenzionale per GetDataAsync, così da supportare chiamate dirette al pacchetto completo.
+    /// </summary>
+    public async Task<FitsDataPackage?> LoadDataPackageAsync(string filePath)
+    {
+        return await GetDataAsync(filePath);
+    }
+
+    /// <summary>
+    /// Estrae un oggetto Mat di OpenCvSharp partendo dal PixelData del singolo FitsHdu.
+    /// </summary>
+    public Mat GetMatFromHdu(FitsHdu hdu)
+    {
+        if (hdu == null || hdu.PixelData == null)
+            throw new ArgumentNullException(nameof(hdu), "L'HDU specificato o i suoi dati pixel sono nulli.");
+
+        // Chiama direttamente l'implementazione del converter per trasformare l'Array FITS in Mat
+        return _openCvConverter.RawToMat(hdu.PixelData);
     }
 
     // =======================================================================

@@ -211,6 +211,7 @@ public partial class BoardViewModel : ObservableObject
         ShowStarMaskingWindowCommand.NotifyCanExecuteChanged();
         ShowCropWindowCommand.NotifyCanExecuteChanged();
         ShowPhotometricClippingWindowCommand.NotifyCanExecuteChanged();
+        ShowRadialProfileToolCommand.NotifyCanExecuteChanged();
 
         AddNodesCommand.NotifyCanExecuteChanged();
         SubtractNodesCommand.NotifyCanExecuteChanged();
@@ -682,6 +683,24 @@ public partial class BoardViewModel : ObservableObject
     [RelayCommand] public void FitView() => Viewport.ZoomToFit(Nodes);
     [RelayCommand(CanExecute = nameof(CanUndo))] private void Undo() => _undoService.Undo();
     [RelayCommand(CanExecute = nameof(CanRedo))] private void Redo() => _undoService.Redo();
+    
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowRadialProfileToolAsync()
+    {
+        await RunGenericProcessing(async (files, mode) =>
+        {
+            // FORZIAMO L'APERTURA DELLA FINESTRA SUL THREAD UI PRINCIPALE DI AVALONIA
+            string? resultPath = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+                await _windowService.ShowRadialProfileWindowAsync(files.ToList()));
+            
+            if (string.IsNullOrWhiteSpace(resultPath)) 
+                return null;
+
+            return (new List<string> { resultPath }, "(Modello Radiale 2D)");
+            
+        }, "Modello Radiale 2D");
+    }
+    
     
     private bool CanUndo() => _undoService.CanUndo;
     private bool CanRedo() => _undoService.CanRedo;

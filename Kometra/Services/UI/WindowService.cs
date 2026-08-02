@@ -326,6 +326,41 @@ public class WindowService : IWindowService
         return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
     }
 
+    public async Task<string?> ShowSaveFileDialogAsync(string title, string defaultFileName, string[]? extensions = null)
+    {
+        if (_mainWindow == null) return null;
+
+        var savePicker = await _mainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = defaultFileName
+        });
+
+        return savePicker?.Path.LocalPath;
+    }
+
+    public async Task<string?> ShowRadialProfileWindowAsync(List<Kometra.Models.Fits.FitsFileReference> files)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        var coordinator = _serviceProvider.GetRequiredService<Kometra.Services.Processing.Coordinators.IRadialProfileCoordinator>();
+        var dataManager = _serviceProvider.GetRequiredService<Kometra.Services.Fits.IFitsDataManager>();
+        var rendererFactory = _serviceProvider.GetRequiredService<Kometra.Services.Factories.IFitsRendererFactory>();
+        var converter = _serviceProvider.GetRequiredService<Kometra.Services.Fits.Conversion.IFitsOpenCvConverter>();
+        
+        using var viewModel = new Kometra.ViewModels.ImageProcessing.RadialProfileToolViewModel(
+            files, coordinator, dataManager, rendererFactory, converter, this);
+
+        var view = new Kometra.Views.RadialProfileToolView
+        {
+            DataContext = viewModel
+        };
+
+        // Usiamo ShowDialogAsync integrato nel servizio, esattamente come per l'Header Editor e l'Export!
+        await ShowDialogAsync(view, viewModel);
+
+        return viewModel.ResultFilePath;
+    }
     // =======================================================================
     // HELPERS PER APERTURA DIALOGHI
     // =======================================================================

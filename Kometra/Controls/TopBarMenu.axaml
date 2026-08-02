@@ -114,6 +114,14 @@
                     <avalonia:MaterialIcon Kind="Creation" />
                 </MenuItem.Icon>
 
+                <MenuItem Header="Profili Radiali"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowRadialProfileToolCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="ChartBellCurveCumulative" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
                 <MenuItem Header="{Binding [MenuRadialModels], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                           Classes="innerMenuItem"
                           Command="{Binding BoardVm.ShowRadialEnhancementWindowCommand}">
@@ -162,6 +170,8 @@
                     <avalonia:MaterialIcon Kind="ImageFilterBlackWhite" />
                 </MenuItem.Icon>
             </MenuItem>
+
+            
             
             <Separator />
             
