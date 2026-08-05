@@ -106,6 +106,7 @@ public class App : Application
         services.AddSingleton<IInpaintingEngine, InpaintingEngine>();
         services.AddSingleton<IPhotometryEngine, PhotometryEngine>();
         services.AddSingleton<IRadialProfileEngine, RadialProfileEngine>();
+        services.AddSingleton<IEllipticalIsophoteEngine, EllipticalIsophoteEngine>();
         
         // --- 4. Servizi di Dominio & Multimedia ---
         services.AddSingleton<IPlateSolvingService, PlateSolvingService>();
@@ -134,7 +135,8 @@ public class App : Application
         services.AddSingleton<INodeStructureCoordinator, NodeStructureCoordinator>(); 
         services.AddSingleton<IPhotometryCoordinator, PhotometryCoordinator>();
         services.AddSingleton<IRadialProfileCoordinator, RadialProfileCoordinator>();
-
+        services.AddSingleton<IEllipticalIsophoteCoordinator, EllipticalIsophoteCoordinator>();
+        
         // --- 6. Factories ---
         services.AddSingleton<INodeViewModelFactory, NodeViewModelFactory>();
         services.AddSingleton<IFitsRendererFactory, FitsRendererFactory>();

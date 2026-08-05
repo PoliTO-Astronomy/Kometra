@@ -145,6 +145,14 @@
                         <avalonia:MaterialIcon Kind="ContrastBox" />
                     </MenuItem.Icon>
                 </MenuItem>
+
+                <MenuItem Header="Isofote Ellittiche"
+                        Classes="innerMenuItem"
+                        Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="EllipseOutline" />
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
             
             <MenuItem Header="{Binding [MenuStarMask], Source={x:Static infrastructure:LocalizationManager.Instance}}"

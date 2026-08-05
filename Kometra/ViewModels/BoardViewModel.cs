@@ -212,7 +212,8 @@ public partial class BoardViewModel : ObservableObject
         ShowCropWindowCommand.NotifyCanExecuteChanged();
         ShowPhotometricClippingWindowCommand.NotifyCanExecuteChanged();
         ShowRadialProfileToolCommand.NotifyCanExecuteChanged();
-
+        ShowEllipticalIsophotesWindowCommand.NotifyCanExecuteChanged();
+        
         AddNodesCommand.NotifyCanExecuteChanged();
         SubtractNodesCommand.NotifyCanExecuteChanged();
         MultiplyNodesCommand.NotifyCanExecuteChanged();
@@ -334,9 +335,9 @@ public partial class BoardViewModel : ObservableObject
         {
             var paths = await _windowService.ShowPhotometricClippingWindowAsync(files, mode);
             
-            return paths != null ? (paths, "(Taglio Fotometrico)") : null;
+            return paths != null ? (paths, "(Photometric Clipping)") : null;
             
-        }, "Taglio Fotometrico");
+        }, "Photometric Clipping");
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
@@ -689,18 +690,26 @@ public partial class BoardViewModel : ObservableObject
     {
         await RunGenericProcessing(async (files, mode) =>
         {
-            // FORZIAMO L'APERTURA DELLA FINESTRA SUL THREAD UI PRINCIPALE DI AVALONIA
-            string? resultPath = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+            var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
                 await _windowService.ShowRadialProfileWindowAsync(files.ToList()));
             
-            if (string.IsNullOrWhiteSpace(resultPath)) 
-                return null;
-
-            return (new List<string> { resultPath }, "(Modello Radiale 2D)");
+            return (paths != null && paths.Any()) ? (paths, "(Radial Profile)") : null;
             
-        }, "Modello Radiale 2D");
+        }, "Radial Profile");
     }
     
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowEllipticalIsophotesWindowAsync()
+    {
+        await RunGenericProcessing(async (files, mode) =>
+        {
+            var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+                await _windowService.ShowEllipticalIsophoteWindowAsync(files.ToList()));
+            
+            return (paths != null && paths.Any()) ? (paths, "(Elliptical Isophotes)") : null;
+            
+        }, "Elliptical Isophotes");
+    }
     
     private bool CanUndo() => _undoService.CanUndo;
     private bool CanRedo() => _undoService.CanRedo;

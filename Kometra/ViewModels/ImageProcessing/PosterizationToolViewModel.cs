@@ -313,7 +313,7 @@ public partial class PosterizationToolViewModel : ObservableObject, IDisposable
     }
 
     private bool CanInteract() => ActiveRenderer != null && !IsProcessing;
-
+    
     [RelayCommand(CanExecute = nameof(CanInteract))]
     private async Task Apply()
     {

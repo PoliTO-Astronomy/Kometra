@@ -15,14 +15,14 @@ using Kometra.ViewModels.Visualization;
 
 namespace Kometra.Views;
 
-public partial class RadialProfileToolView : Window
+public partial class EllipticalIsophoteToolView : Window
 {
     private Line? _lineH;
     private Line? _lineV;
     private Ellipse? _circle;
-    private RadialProfileToolViewModel? _vm;
+    private EllipticalIsophoteToolViewModel? _vm;
 
-    public RadialProfileToolView()
+    public EllipticalIsophoteToolView()
     {
         InitializeComponent();
         
@@ -48,7 +48,7 @@ public partial class RadialProfileToolView : Window
 
     private void OnWindowLoaded(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is RadialProfileToolViewModel vm)
+        if (DataContext is EllipticalIsophoteToolViewModel vm)
         {
             _vm = vm;
             _vm.PropertyChanged += OnViewModelPropertyChanged;
@@ -74,24 +74,22 @@ public partial class RadialProfileToolView : Window
             if (_vm == null) return;
             switch (e.PropertyName)
             {
-                case nameof(RadialProfileToolViewModel.CenterX):
+                case nameof(EllipticalIsophoteToolViewModel.CenterX):
                     UpdateBox("CenterXBox", _vm.CenterX);
                     UpdateCrosshairPosition();
                     break;
-                case nameof(RadialProfileToolViewModel.CenterY):
+                case nameof(EllipticalIsophoteToolViewModel.CenterY):
                     UpdateBox("CenterYBox", _vm.CenterY);
                     UpdateCrosshairPosition();
                     break;
-                case nameof(RadialProfileToolViewModel.MaxRadius):
-                    UpdateBox("MaxRadiusBox", _vm.MaxRadius);
-                    break;
-                case nameof(RadialProfileToolViewModel.StepSize):
-                    UpdateBox("StepSizeBox", _vm.StepSize);
-                    break;
-                case nameof(RadialProfileToolViewModel.Viewport):
+                case nameof(EllipticalIsophoteToolViewModel.MaxRadius): UpdateBox("MaxRadiusBox", _vm.MaxRadius); break;
+                case nameof(EllipticalIsophoteToolViewModel.StepSize): UpdateBox("StepSizeBox", _vm.StepSize); break;
+                case nameof(EllipticalIsophoteToolViewModel.Ellipticity): UpdateBox("EllipticityBox", _vm.Ellipticity); break;
+                case nameof(EllipticalIsophoteToolViewModel.PositionAngleDeg): UpdateBox("PositionAngleBox", _vm.PositionAngleDeg); break;
+                case nameof(EllipticalIsophoteToolViewModel.PreviewRenderer):
                     UpdateCrosshairPosition();
                     break;
-                case nameof(RadialProfileToolViewModel.IsPreviewActive):
+                case nameof(EllipticalIsophoteToolViewModel.IsPreviewActive):
                     if (_vm.IsPreviewActive) HideCrosshair();
                     else UpdateCrosshairPosition();
                     break;
@@ -116,6 +114,8 @@ public partial class RadialProfileToolView : Window
         UpdateBox("CenterYBox", _vm.CenterY);
         UpdateBox("MaxRadiusBox", _vm.MaxRadius);
         UpdateBox("StepSizeBox", _vm.StepSize);
+        UpdateBox("EllipticityBox", _vm.Ellipticity);
+        UpdateBox("PositionAngleBox", _vm.PositionAngleDeg);
     }
 
     private void OnManualInputCommit(object? sender, RoutedEventArgs e)
@@ -125,14 +125,12 @@ public partial class RadialProfileToolView : Window
         string input = (box.Text ?? string.Empty).Replace(',', '.');
         var culture = CultureInfo.InvariantCulture;
 
-        if (box.Name == "CenterXBox" && double.TryParse(input, NumberStyles.Any, culture, out double cx))
-            _vm.CenterX = cx;
-        else if (box.Name == "CenterYBox" && double.TryParse(input, NumberStyles.Any, culture, out double cy))
-            _vm.CenterY = cy;
-        else if (box.Name == "MaxRadiusBox" && double.TryParse(input, NumberStyles.Any, culture, out double mr))
-            _vm.MaxRadius = mr;
-        else if (box.Name == "StepSizeBox" && double.TryParse(input, NumberStyles.Any, culture, out double st))
-            _vm.StepSize = st;
+        if (box.Name == "CenterXBox" && double.TryParse(input, NumberStyles.Any, culture, out double cx)) _vm.CenterX = cx;
+        else if (box.Name == "CenterYBox" && double.TryParse(input, NumberStyles.Any, culture, out double cy)) _vm.CenterY = cy;
+        else if (box.Name == "MaxRadiusBox" && double.TryParse(input, NumberStyles.Any, culture, out double mr)) _vm.MaxRadius = mr;
+        else if (box.Name == "StepSizeBox" && double.TryParse(input, NumberStyles.Any, culture, out double st)) _vm.StepSize = st;
+        else if (box.Name == "EllipticityBox" && double.TryParse(input, NumberStyles.Any, culture, out double el)) _vm.Ellipticity = el;
+        else if (box.Name == "PositionAngleBox" && double.TryParse(input, NumberStyles.Any, culture, out double pa)) _vm.PositionAngleDeg = pa;
 
         UpdateUiValues();
         UpdateCrosshairPosition();
@@ -147,10 +145,6 @@ public partial class RadialProfileToolView : Window
         }
     }
 
-    // =======================================================================
-    // GESTIONE MIRINO (CROSSHAIR) E CLICK SULL'IMMAGINE - ALLINEAMENTO AZZERATO
-    // =======================================================================
-
     private void UpdateCrosshairPosition()
     {
         if (_vm == null || _vm.IsPreviewActive || _lineH == null || _lineV == null || _circle == null)
@@ -163,7 +157,7 @@ public partial class RadialProfileToolView : Window
         if (containerGrid == null ||
             containerGrid.Bounds.Width <= 0 ||
             containerGrid.Bounds.Height <= 0 ||
-            _vm.Viewport is not FitsRenderer { Image: Bitmap bitmap })
+            _vm.PreviewRenderer is not FitsRenderer { Image: Bitmap bitmap })
         {
             HideCrosshair();
             return;
@@ -225,7 +219,7 @@ public partial class RadialProfileToolView : Window
         if (containerGrid == null ||
             containerGrid.Bounds.Width <= 0 ||
             containerGrid.Bounds.Height <= 0 ||
-            _vm.Viewport is not FitsRenderer { Image: Bitmap bitmap })
+            _vm.PreviewRenderer is not FitsRenderer { Image: Bitmap bitmap })
         {
             return;
         }
@@ -257,4 +251,6 @@ public partial class RadialProfileToolView : Window
         _ = _vm.OnImageClickedAsync(new Point(fitsX, fitsY));
         UpdateCrosshairPosition();
     }
+
+    private void OnControlsPointerPressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
 }

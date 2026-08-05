@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kometra.Models.Export;
 using Kometra.Models.Fits;
@@ -32,10 +33,8 @@ public interface IWindowService
     Task ShowSettingsWindowAsync();
     Task<List<string>?> ShowPhotometricClippingWindowAsync(List<FitsFileReference> files, VisualizationMode mode);
     Task<string?> ShowSaveFileDialogAsync(string title, string defaultFileName, string[]? extensions = null);
-    Task<string?> ShowRadialProfileWindowAsync(List<FitsFileReference> files);    
-    
-    // Enhancement
-    Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowRadialEnhancementWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
+    Task<List<string>?> ShowRadialProfileWindowAsync(List<FitsFileReference> files);
+    Task<List<string>?> ShowEllipticalIsophoteWindowAsync(List<FitsFileReference> files);Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowRadialEnhancementWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowStructureExtractionWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowLocalContrastWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
 }

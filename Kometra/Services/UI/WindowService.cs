@@ -29,6 +29,7 @@ using ImportViewModel = Kometra.ViewModels.ImportExport.ImportViewModel;
 using SettingsViewModel = Kometra.ViewModels.Settings.SettingsViewModel;
 using VideoExportToolViewModel = Kometra.ViewModels.ImportExport.VideoExportToolViewModel;
 using Kometra.Services.Fits.Conversion;
+using Kometra.Services.Processing.Engines; 
 
 namespace Kometra.Services.UI;
 
@@ -311,13 +312,14 @@ public class WindowService : IWindowService
     {
         if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
 
-        // Risoluzione delle dipendenze dal contenitore globale
+        // Risoluzione delle dipendenze dal contenitore globale (aggiunto dataManager)
         var coordinator = _serviceProvider.GetRequiredService<IPhotometryCoordinator>();
         var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
         var converter = _serviceProvider.GetRequiredService<IFitsOpenCvConverter>();
+        var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>(); // <-- NUOVO
 
-        // Creazione del ViewModel passando i file e i servizi
-        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter);
+        // Creazione del ViewModel passando anche dataManager come quinto parametro
+        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter, dataManager);
         
         // Creazione della View e assegnazione del DataContext
         var view = new PhotometricClippingToolView { DataContext = viewModel };
@@ -339,7 +341,7 @@ public class WindowService : IWindowService
         return savePicker?.Path.LocalPath;
     }
 
-    public async Task<string?> ShowRadialProfileWindowAsync(List<Kometra.Models.Fits.FitsFileReference> files)
+    public async Task<List<string>?> ShowRadialProfileWindowAsync(List<Kometra.Models.Fits.FitsFileReference> files)
     {
         if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
 
@@ -356,11 +358,30 @@ public class WindowService : IWindowService
             DataContext = viewModel
         };
 
-        // Usiamo ShowDialogAsync integrato nel servizio, esattamente come per l'Header Editor e l'Export!
-        await ShowDialogAsync(view, viewModel);
-
-        return viewModel.ResultFilePath;
+        // Restituisce ResultPaths SOLO SE DialogResult è true (dopo aver premuto "Applica")
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
     }
+
+
+    public async Task<List<string>?> ShowEllipticalIsophoteWindowAsync(List<FitsFileReference> files)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        var coordinator = _serviceProvider.GetRequiredService<IEllipticalIsophoteCoordinator>();
+        var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>();
+        var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
+        
+        using var viewModel = new EllipticalIsophoteToolViewModel(files, coordinator, dataManager, rendererFactory, this);
+
+        var view = new EllipticalIsophoteToolView 
+        { 
+            DataContext = viewModel 
+        };
+
+        // Restituisce ResultPaths SOLO SE DialogResult è true (dopo aver premuto "Applica")
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
+    }
+    
     // =======================================================================
     // HELPERS PER APERTURA DIALOGHI
     // =======================================================================
