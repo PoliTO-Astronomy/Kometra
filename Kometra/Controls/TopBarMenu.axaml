@@ -146,7 +146,7 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <MenuItem Header="Isofote Ellittiche"
+                <MenuItem Header="Isofote"
                         Classes="innerMenuItem"
                         Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
                     <MenuItem.Icon>

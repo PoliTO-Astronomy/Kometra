@@ -30,19 +30,27 @@ public class RadialProfileEngine : IRadialProfileEngine
 
         double maxRadiusSq = parameters.MaxRadius * parameters.MaxRadius;
 
+        bool checkAngle = parameters.IntegrationAngle < 180.0;
+        
+        double startAngle = parameters.StartingAngle % 360.0;
+        if (startAngle < 0) startAngle += 360.0;
+        double minA = startAngle - parameters.IntegrationAngle;
+        double maxA = startAngle + parameters.IntegrationAngle;
+
         using Mat floatMat = new Mat();
         if (image.Type() != MatType.CV_32FC1)
             image.ConvertTo(floatMat, MatType.CV_32FC1);
         else
             image.CopyTo(floatMat);
 
-        // Indicizzazione sicura e ad alte prestazioni di OpenCvSharp per float 32-bit (senza unsafe)
         var indexer = floatMat.GetGenericIndexer<float>();
 
         for (int y = minY; y <= maxY; y++)
         {
-            double dy = y - parameters.CenterY;
-            double dySq = dy * dy;
+            // La Y è invertita in modo che +Y punti verso l'alto
+            double dyForAngle = parameters.CenterY - y; 
+            double dyForDist = y - parameters.CenterY;
+            double dySq = dyForDist * dyForDist;
 
             for (int x = minX; x <= maxX; x++)
             {
@@ -51,6 +59,25 @@ public class RadialProfileEngine : IRadialProfileEngine
 
                 if (distSq > maxRadiusSq)
                     continue;
+
+                if (checkAngle && distSq > 0.0001) 
+                {
+                    // Atan2(Y, X) dove X positivo è 0°, Y positivo (sopra) è 90°
+                    double angleDeg = Math.Atan2(dyForAngle, dx) * (180.0 / Math.PI);
+                    if (angleDeg < 0) angleDeg += 360.0;
+
+                    bool inSector = false;
+                    
+                    if (minA < 0)
+                        inSector = (angleDeg >= (360 + minA)) || (angleDeg <= maxA);
+                    else if (maxA >= 360)
+                        inSector = (angleDeg >= minA) || (angleDeg <= (maxA - 360));
+                    else
+                        inSector = (angleDeg >= minA) && (angleDeg <= maxA);
+
+                    if (!inSector)
+                        continue; 
+                }
 
                 float val = indexer[y, x];
 

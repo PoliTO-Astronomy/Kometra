@@ -706,7 +706,7 @@ public partial class BoardViewModel : ObservableObject
             var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
                 await _windowService.ShowEllipticalIsophoteWindowAsync(files.ToList()));
             
-            return (paths != null && paths.Any()) ? (paths, "(Elliptical Isophotes)") : null;
+            return (paths != null && paths.Any()) ? (paths, "(Isophotes)") : null;
             
         }, "Elliptical Isophotes");
     }

@@ -9,7 +9,7 @@
         mc:Ignorable="d" d:DesignWidth="1050" d:DesignHeight="700"
         x:Class="Kometra.Views.EllipticalIsophoteToolView"
         x:DataType="vm:EllipticalIsophoteToolViewModel"
-        Title="Analisi e Modellizzazione Isofote Ellittiche"
+        Title="Isofote"
         Width="1050" Height="700"
         MinWidth="850" MinHeight="550"
         WindowStartupLocation="CenterOwner">
@@ -39,31 +39,9 @@
             <Setter Property="Background" Value="#9470F0"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
-        <Style Selector="Button.calculate:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#444444"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-        </Style>
 
         <Style Selector="NumericUpDown:disabled">
             <Setter Property="Opacity" Value="0.5"/>
-        </Style>
-        <Style Selector="NumericUpDown:disabled /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton">
-            <Setter Property="Foreground" Value="#777777"/>
-            <Setter Property="BorderBrush" Value="#444444"/>
-            <Setter Property="Background" Value="#2A2A2A"/>
-        </Style>
-        <Style Selector="NumericUpDown:disabled /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton /template/ PathIcon">
-            <Setter Property="Foreground" Value="#777777"/>
-        </Style>
-
-        <Style Selector="DataValidationErrors">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <ContentPresenter Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
-                </ControlTemplate>
-            </Setter>
-            <Setter Property="ErrorTemplate" Value="{x:Null}" />
         </Style>
     </Window.Styles>
 
@@ -74,40 +52,28 @@
             
             <Border Grid.Row="0" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="PARAMETRI ELLISSE" FontSize="14" FontWeight="Bold" Foreground="#E0E0E0"/>
-                    <TextBlock Text="Clicca sull'immagine a destra per posizionare il centro." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                    <TextBlock Text="ISOFOTE" FontSize="14" FontWeight="Bold" Foreground="#E0E0E0"/>
+                    <TextBlock Text="Genera veri contorni topologici sottili basati sui livelli di intensità, ignorando le geometrie fittizie." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                     
                     <StackPanel Spacing="10" IsEnabled="{Binding !IsPreviewActive}">
                         <Grid ColumnDefinitions="*, 8, *">
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Centro X (px)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="CenterXBox" Value="{Binding CenterX, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <TextBlock Text="Minimo (ADU)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
+                                <NumericUpDown Name="MinValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Centro Y (px)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="CenterYBox" Value="{Binding CenterY, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <TextBlock Text="Massimo (ADU)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
+                                <NumericUpDown Name="MaxValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*, 8, *">
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Raggio Max 'a'" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="MaxRadiusBox" Value="{Binding MaxRadius, Mode=TwoWay}" Minimum="10" Maximum="5000" Increment="10" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <TextBlock Text="Passo (Step)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
+                                <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Step Campionamento" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="StepSizeBox" Value="{Binding StepSize, Mode=TwoWay}" Minimum="0.5" Maximum="50" Increment="1.0" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, 8, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Ellitticità (ε)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="EllipticityBox" Value="{Binding Ellipticity, Mode=TwoWay}" Minimum="0.00" Maximum="0.85" Increment="0.05" FormatString="F2" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Angolo PA (°)" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,2"/>
-                                <NumericUpDown Name="PositionAngleBox" Value="{Binding PositionAngleDeg, Mode=TwoWay}" Minimum="-180.0" Maximum="180.0" Increment="5.0" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,4">
+                                <CheckBox Content="Monocromatico" IsChecked="{Binding IsMonochromatic}" Foreground="#E0E0E0" FontSize="12"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -121,31 +87,17 @@
                             Margin="0,4,0,0"/>
 
                     <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding IsPreviewActive}" Margin="0,4,0,0">
-                        <Button Grid.Column="0" 
-                                Content="Indietro" 
-                                Command="{Binding RevertToOriginalCommand}" 
-                                Classes="cancel"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"/>
-
-                        <Button Grid.Column="2" 
-                                Content="Applica" 
-                                Command="{Binding ApplyCommand}" 
-                                Classes="apply"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="0" Content="Indietro" Command="{Binding RevertToOriginalCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Applica" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="8">
                 <Grid RowDefinitions="Auto, *">
-                    <Grid Grid.Row="0" ColumnDefinitions="2*, 2*, 2*, 3*, 3*" Margin="2,2,2,6">
-                        <TextBlock Grid.Column="0" Text="Asse 'a'" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="1" Text="ε" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="2" Text="PA" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="3" Text="Media" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="4" Text="Dev.Std" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                    <Grid Grid.Row="0" ColumnDefinitions="3*, 3*" Margin="2,2,2,6">
+                        <TextBlock Grid.Column="0" Text="Livello Isofota (ADU)" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA"/>
+                        <TextBlock Grid.Column="1" Text="Area Racchiusa (px²)" FontWeight="Bold" FontSize="11" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
                     </Grid>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -153,12 +105,9 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:EllipticalIsophoteDataPoint" DataType="models:EllipticalIsophoteDataPoint">
                                     <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="2,4">
-                                        <Grid ColumnDefinitions="2*, 2*, 2*, 3*, 3*">
-                                            <TextBlock Grid.Column="0" Text="{Binding SemiMajorAxis, StringFormat={}{0:F1}}" FontSize="11" Foreground="#E0E0E0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Ellipticity, StringFormat={}{0:F2}}" FontSize="11" Foreground="#BBBBBB"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding PositionAngleRad, StringFormat={}{0:F1}}" FontSize="11" Foreground="#BBBBBB"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding MeanValue, StringFormat={}{0:F2}}" FontSize="11" Foreground="#4CC2FF"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding StandardDeviation, StringFormat={}{0:F2}}" FontSize="11" Foreground="#888888" HorizontalAlignment="Right"/>
+                                        <Grid ColumnDefinitions="3*, 3*">
+                                            <TextBlock Grid.Column="0" Text="{Binding MeanValue, StringFormat={}{0:F2}}" FontSize="11" Foreground="#4CC2FF"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PixelCount}" FontSize="11" Foreground="#E0E0E0" HorizontalAlignment="Right"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -169,28 +118,21 @@
             </Border>
 
             <Grid Grid.Row="2" Margin="0,12,0,0">
-                <Button Command="{Binding ExportCsvCommand}" 
-                        Content="Esporta CSV..." 
-                        HorizontalAlignment="Stretch" 
-                        HorizontalContentAlignment="Center"/>
+                <Button Command="{Binding ExportCsvCommand}" Content="Esporta CSV" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
             </Grid>
         </Grid>
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" Background="Transparent"/>
 
-        <!-- COLONNA DESTRA: IMMAGINE SOPRA, BARRA FRECCETTE SOTTO -->
+        <!-- COLONNA DESTRA -->
         <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
             
             <Border Grid.Row="0" Background="#161616" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-                <Grid x:Name="ImageContainerGrid" Background="Transparent" PointerPressed="OnViewportPointerPressed" ClipToBounds="True">
-                    <ContentControl x:Name="ViewportControl" 
-                                    Content="{Binding PreviewRenderer}" />
-
-                    <Canvas x:Name="CrosshairOverlay" IsHitTestVisible="False" ClipToBounds="True" IsVisible="{Binding !IsPreviewActive}">
-                        <Line x:Name="CrosshairLineH" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
-                        <Line x:Name="CrosshairLineV" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
-                        <Ellipse x:Name="CrosshairCircle" Width="14" Height="14" Stroke="#FF3333" StrokeThickness="1.5" Fill="Transparent" IsVisible="False" />
-                    </Canvas>
+                <Grid Background="Transparent" ClipToBounds="True">
+                    
+                    <ContentControl Content="{Binding PreviewRenderer}" />
+                    
+                    <Image Source="{Binding OverlayImage}" Stretch="Uniform" IsVisible="{Binding IsPreviewActive}" />
 
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
@@ -201,26 +143,35 @@
                 </Grid>
             </Border>
 
-            <!-- BARRA DI NAVIGAZIONE SOTTO L'IMMAGINE -->
-            <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0" 
-                    Padding="10,8" IsVisible="{Binding HasMultipleImages}">
-                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Button Command="{Binding Navigator.MoveToFirstCommand}" ToolTip.Tip="Prima immagine" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronDoubleLeft" Width="18" Height="18"/>
-                    </Button>
-                    <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="Immagine precedente" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronLeft" Width="18" Height="18"/>
-                    </Button>
-                    <Border Background="#2A2A2A" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="14,6" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                    </Border>
-                    <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="Immagine successiva" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronRight" Width="18" Height="18"/>
-                    </Button>
-                    <Button Command="{Binding Navigator.MoveToLastCommand}" ToolTip.Tip="Ultima immagine" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronDoubleRight" Width="18" Height="18"/>
-                    </Button>
-                </StackPanel>
+            <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0" Padding="10,8">
+                <Grid>
+                    <!-- Navigatore (Centrato) -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasMultipleImages}">
+                        <Button Command="{Binding Navigator.MoveToFirstCommand}" ToolTip.Tip="Prima immagine" Width="36" Height="34">
+                            <avalonia:MaterialIcon Kind="ChevronDoubleLeft" Width="18" Height="18"/>
+                        </Button>
+                        <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="Immagine precedente" Width="36" Height="34">
+                            <avalonia:MaterialIcon Kind="ChevronLeft" Width="18" Height="18"/>
+                        </Button>
+                        <Border Background="#2A2A2A" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="14,6" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                        </Border>
+                        <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="Immagine successiva" Width="36" Height="34">
+                            <avalonia:MaterialIcon Kind="ChevronRight" Width="18" Height="18"/>
+                        </Button>
+                        <Button Command="{Binding Navigator.MoveToLastCommand}" ToolTip.Tip="Ultima immagine" Width="36" Height="34">
+                            <avalonia:MaterialIcon Kind="ChevronDoubleRight" Width="18" Height="18"/>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Pulsante Esporta PNG (Destra) -->
+                    <Button Command="{Binding ExportPngCommand}" 
+                            IsVisible="{Binding IsPreviewActive}"
+                            Content="Esporta PNG" 
+                            HorizontalAlignment="Right" 
+                            VerticalAlignment="Center"
+                            Padding="12,6"/>
+                </Grid>
             </Border>
         </Grid>
 

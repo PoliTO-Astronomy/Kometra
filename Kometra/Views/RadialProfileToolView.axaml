@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        xmlns:sp="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
         xmlns:models="using:Kometra.Models.Processing.Analysis"
@@ -69,11 +70,10 @@
 
     <Grid ColumnDefinitions="420, 4, *" RowDefinitions="*, Auto" Margin="12">
         
-        <!-- COLONNA SINISTRA -->
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="PROFILO RADIALE (LIGHT CURVE)" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
+                <TextBlock Text="PROFILO RADIALE" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
                 <TextBlock Text="Clicca sull'immagine a destra per posizionare il centro di analisi." 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
@@ -89,7 +89,6 @@
                                                Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1"
                                                LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
-
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Centro Y (px)" Classes="paramLabel"/>
                                 <NumericUpDown Name="CenterYBox"
@@ -107,12 +106,28 @@
                                                Minimum="5" Maximum="2000" Increment="5" FormatString="F0"
                                                LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
-
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Step / Bin (px)" Classes="paramLabel"/>
                                 <NumericUpDown Name="StepSizeBox"
                                                Value="{Binding StepSize, Mode=TwoWay}"
                                                Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1"
+                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*, 10, *">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Angolo Partenza (°)" Classes="paramLabel"/>
+                                <NumericUpDown Name="StartingAngleBox"
+                                               Value="{Binding StartingAngle, Mode=TwoWay}"
+                                               Minimum="-360" Maximum="360" Increment="5" FormatString="F0"
+                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Angolo Integraz. (°)" Classes="paramLabel"/>
+                                <NumericUpDown Name="IntegrationAngleBox"
+                                               Value="{Binding IntegrationAngle, Mode=TwoWay}"
+                                               Minimum="1" Maximum="180" Increment="5" FormatString="F0"
                                                LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
@@ -136,54 +151,64 @@
                             Margin="0,4,0,0"/>
 
                     <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding IsPreviewActive}" Margin="0,4,0,0">
-                        <Button Grid.Column="0" 
-                                Content="Indietro" 
-                                Command="{Binding BackToOriginalCommand}" 
-                                Classes="cancel"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"/>
-
-                        <Button Grid.Column="2" 
-                                Content="Applica" 
-                                Command="{Binding ApplyCommand}" 
-                                Classes="apply"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="0" Content="Indietro" Command="{Binding BackToOriginalCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Applica" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="8">
-                <Grid RowDefinitions="Auto, *">
-                    <Grid Grid.Row="0" ColumnDefinitions="2*, 3*, 3*, 2*" Margin="4,4,4,8">
-                        <TextBlock Grid.Column="0" Text="Raggio" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="1" Text="Valore (ADU)" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="2" Text="Dev. Std (σ)" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                        <TextBlock Grid.Column="3" Text="Pixel #" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
-                    </Grid>
+            <!-- CONTENITORE GRAFICO CON PLACEHOLDER -->
+            <!-- CONTENITORE GRAFICO CON PLACEHOLDER -->
+            <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
+                <Grid>
+                    <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
+                                HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                        <avalonia:MaterialIcon Kind="ChartBoxOutline" Width="48" Height="48" Foreground="#444444"/>
+                        <TextBlock Text="In attesa del calcolo dell'anteprima..." 
+                                   Foreground="#777777" FontSize="14" FontStyle="Italic" 
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
 
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding ProfilePoints}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:RadialProfileDataPoint" DataType="models:RadialProfileDataPoint">
-                                    <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="4,6">
-                                        <Grid ColumnDefinitions="2*, 3*, 3*, 2*">
-                                            <TextBlock Grid.Column="0" Text="{Binding Radius, StringFormat={}{0:F1}}" FontSize="12" Foreground="#E0E0E0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Value, StringFormat={}{0:F2}}" FontSize="12" Foreground="#4CC2FF" FontWeight="SemiBold"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding StandardDeviation, StringFormat={}{0:F2}}" FontSize="12" Foreground="#BBBBBB"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding PixelCount}" FontSize="12" Foreground="#888888" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
+                                IsVisible="{Binding HasCalculatedProfile}"
+                                Background="Transparent" BorderThickness="0" Padding="0">
+                        <TabItem Header="Grafico">
+                            <sp:AvaPlot Name="ProfilePlot" Margin="16,8,24,12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                        </TabItem>
+                        <TabItem Header="Tabella">
+                            <Grid RowDefinitions="Auto, *">
+                                <Grid Grid.Row="0" ColumnDefinitions="2*, 3*, 3*, 2*" Margin="8,8,8,8">
+                                    <TextBlock Grid.Column="0" Text="Raggio" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="1" Text="Valore" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="2" Text="Dev. Std" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="3" Text="Pixel #" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding ProfilePoints}" Margin="4,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:RadialProfileDataPoint" DataType="models:RadialProfileDataPoint">
+                                                <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="4,6">
+                                                    <Grid ColumnDefinitions="2*, 3*, 3*, 2*">
+                                                        <TextBlock Grid.Column="0" Text="{Binding Radius, StringFormat={}{0:F1}}" FontSize="12" Foreground="#E0E0E0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Value, StringFormat={}{0:F2}}" FontSize="12" Foreground="#4CC2FF" FontWeight="SemiBold"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding StandardDeviation, StringFormat={}{0:F2}}" FontSize="12" Foreground="#BBBBBB"/>
+                                                        <TextBlock Grid.Column="3" Text="{Binding PixelCount}" FontSize="12" Foreground="#888888" HorizontalAlignment="Right"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
                 </Grid>
             </Border>
 
             <Grid Grid.Row="3" Margin="0,12,0,0">
-                <Button Command="{Binding ExportCsvCommand}" 
-                        Content="Esporta CSV..." 
+                <Button Command="{Binding ExportDataCommand}" 
+                        Content="{Binding ExportButtonText}" 
+                        IsEnabled="{Binding HasCalculatedProfile}"
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
             </Grid>
@@ -191,23 +216,20 @@
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" Background="Transparent" />
 
-        <!-- COLONNA DESTRA: IMMAGINE SOPRA, BARRA FRECCETTE SOTTO -->
         <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
             
             <Border Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" PointerPressed="OnViewportPointerPressed" ClipToBounds="True">
-                    <!-- 1. Renderizzatore FITS -->
-                    <ContentControl x:Name="ViewportControl" 
-                                    Content="{Binding Viewport}" />
+                    <ContentControl x:Name="ViewportControl" Content="{Binding Viewport}" />
 
-                    <!-- 2. Overlay Mirino (Crosshair del Centro) -->
                     <Canvas x:Name="CrosshairOverlay" IsHitTestVisible="False" ClipToBounds="True" IsVisible="{Binding !IsPreviewActive}">
+                        <Path x:Name="SectorOverlay" Stroke="Yellow" StrokeThickness="1.5" Fill="#22FFFF00" IsVisible="False" />
+                        
                         <Line x:Name="CrosshairLineH" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
                         <Line x:Name="CrosshairLineV" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
                         <Ellipse x:Name="CrosshairCircle" Width="14" Height="14" Stroke="#FF3333" StrokeThickness="1.5" Fill="Transparent" IsVisible="False" />
                     </Canvas>
 
-                    <!-- 3. Overlay di Caricamento -->
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                             <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
@@ -217,7 +239,6 @@
                 </Grid>
             </Border>
 
-            <!-- BARRA DI NAVIGAZIONE SOTTO L'IMMAGINE -->
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0" 
                     Padding="10,8" IsVisible="{Binding HasMultipleImages}">
                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -240,7 +261,6 @@
             </Border>
         </Grid>
 
-        <!-- BARRA DI STATO IN BASSO -->
         <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="0,1,0,0" Padding="8,4" Margin="0,8,0,0">
             <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center" />
         </Border>

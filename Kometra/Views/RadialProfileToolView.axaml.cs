@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,11 +8,13 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Kometra.ViewModels.ImageProcessing;
 using Kometra.ViewModels.Visualization;
+using Kometra.Models.Processing.Analysis;
 
 namespace Kometra.Views;
 
@@ -20,6 +23,7 @@ public partial class RadialProfileToolView : Window
     private Line? _lineH;
     private Line? _lineV;
     private Ellipse? _circle;
+    private Path? _sectorOverlay;
     private RadialProfileToolViewModel? _vm;
 
     public RadialProfileToolView()
@@ -38,6 +42,7 @@ public partial class RadialProfileToolView : Window
         _lineH = this.FindControl<Line>("CrosshairLineH");
         _lineV = this.FindControl<Line>("CrosshairLineV");
         _circle = this.FindControl<Ellipse>("CrosshairCircle");
+        _sectorOverlay = this.FindControl<Path>("SectorOverlay");
 
         var viewportCtrl = this.FindControl<ContentControl>("ViewportControl");
         if (viewportCtrl != null)
@@ -52,7 +57,13 @@ public partial class RadialProfileToolView : Window
         {
             _vm = vm;
             _vm.PropertyChanged += OnViewModelPropertyChanged;
+            
+            _vm.ProfilePoints.CollectionChanged += (s, ev) => Dispatcher.UIThread.Post(UpdatePlot);
+
+            _vm.SavePlotRequested += OnSavePlotRequested;
+
             UpdateUiValues();
+            UpdatePlot();
             
             Dispatcher.UIThread.Post(UpdateCrosshairPosition, DispatcherPriority.Loaded);
         }
@@ -63,7 +74,17 @@ public partial class RadialProfileToolView : Window
         if (_vm != null)
         {
             _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            _vm.SavePlotRequested -= OnSavePlotRequested;
             _vm = null;
+        }
+    }
+
+    private void OnSavePlotRequested(string filePath)
+    {
+        var plotControl = this.FindControl<ScottPlot.Avalonia.AvaPlot>("ProfilePlot");
+        if (plotControl != null)
+        {
+            plotControl.Plot.SavePng(filePath, 1200, 800);
         }
     }
 
@@ -84,9 +105,18 @@ public partial class RadialProfileToolView : Window
                     break;
                 case nameof(RadialProfileToolViewModel.MaxRadius):
                     UpdateBox("MaxRadiusBox", _vm.MaxRadius);
+                    UpdateCrosshairPosition();
                     break;
                 case nameof(RadialProfileToolViewModel.StepSize):
                     UpdateBox("StepSizeBox", _vm.StepSize);
+                    break;
+                case nameof(RadialProfileToolViewModel.StartingAngle):
+                    UpdateBox("StartingAngleBox", _vm.StartingAngle);
+                    UpdateCrosshairPosition();
+                    break;
+                case nameof(RadialProfileToolViewModel.IntegrationAngle):
+                    UpdateBox("IntegrationAngleBox", _vm.IntegrationAngle);
+                    UpdateCrosshairPosition();
                     break;
                 case nameof(RadialProfileToolViewModel.Viewport):
                     UpdateCrosshairPosition();
@@ -116,6 +146,8 @@ public partial class RadialProfileToolView : Window
         UpdateBox("CenterYBox", _vm.CenterY);
         UpdateBox("MaxRadiusBox", _vm.MaxRadius);
         UpdateBox("StepSizeBox", _vm.StepSize);
+        UpdateBox("StartingAngleBox", _vm.StartingAngle);
+        UpdateBox("IntegrationAngleBox", _vm.IntegrationAngle);
     }
 
     private void OnManualInputCommit(object? sender, RoutedEventArgs e)
@@ -133,6 +165,10 @@ public partial class RadialProfileToolView : Window
             _vm.MaxRadius = mr;
         else if (box.Name == "StepSizeBox" && double.TryParse(input, NumberStyles.Any, culture, out double st))
             _vm.StepSize = st;
+        else if (box.Name == "StartingAngleBox" && double.TryParse(input, NumberStyles.Any, culture, out double sa))
+            _vm.StartingAngle = sa;
+        else if (box.Name == "IntegrationAngleBox" && double.TryParse(input, NumberStyles.Any, culture, out double ia))
+            _vm.IntegrationAngle = ia;
 
         UpdateUiValues();
         UpdateCrosshairPosition();
@@ -147,13 +183,53 @@ public partial class RadialProfileToolView : Window
         }
     }
 
-    // =======================================================================
-    // GESTIONE MIRINO (CROSSHAIR) E CLICK SULL'IMMAGINE - ALLINEAMENTO AZZERATO
-    // =======================================================================
+    private void UpdatePlot()
+    {
+        var plotControl = this.FindControl<ScottPlot.Avalonia.AvaPlot>("ProfilePlot");
+        if (plotControl == null || _vm == null) return;
+
+        plotControl.Plot.Clear();
+
+        plotControl.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
+        plotControl.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
+        
+        plotControl.Plot.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
+        plotControl.Plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
+
+        if (_vm.ProfilePoints.Count > 0)
+        {
+            double[] xs = new double[_vm.ProfilePoints.Count];
+            double[] ys = new double[_vm.ProfilePoints.Count];
+
+            for (int i = 0; i < _vm.ProfilePoints.Count; i++)
+            {
+                xs[i] = _vm.ProfilePoints[i].Radius;
+                ys[i] = _vm.ProfilePoints[i].Value;
+            }
+
+            var scatter = plotControl.Plot.Add.Scatter(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
+            scatter.MarkerStyle.Size = 0;
+            scatter.LineStyle.Width = 2.0f;
+            
+            string yLabel = _vm.SelectedMode switch
+            {
+                RadialProfileMode.Sum => "Total Intensity [ADU]",
+                RadialProfileMode.Median => "Median Intensity [ADU]",
+                _ => "Normalized Integrated Intensity"
+            };
+
+            plotControl.Plot.Axes.Title.Label.Text = "Radial Profile";
+            plotControl.Plot.Axes.Bottom.Label.Text = "Radius [pixels]";
+            plotControl.Plot.Axes.Left.Label.Text = yLabel + "\n "; 
+            plotControl.Plot.Axes.AutoScale();
+        }
+
+        plotControl.Refresh();
+    }
 
     private void UpdateCrosshairPosition()
     {
-        if (_vm == null || _vm.IsPreviewActive || _lineH == null || _lineV == null || _circle == null)
+        if (_vm == null || _vm.IsPreviewActive || _lineH == null || _lineV == null || _circle == null || _sectorOverlay == null)
         {
             HideCrosshair();
             return;
@@ -208,6 +284,42 @@ public partial class RadialProfileToolView : Window
         Canvas.SetLeft(_circle, screenX - circleRadius);
         Canvas.SetTop(_circle, screenY - circleRadius);
         _circle.IsVisible = true;
+
+        if (_vm.IntegrationAngle >= 180)
+        {
+            double r = _vm.MaxRadius * scale;
+            var geo = new EllipseGeometry { Rect = new Rect(screenX - r, screenY - r, r * 2, r * 2) };
+            _sectorOverlay.Data = geo;
+            _sectorOverlay.IsVisible = true;
+        }
+        else
+        {
+            double r = _vm.MaxRadius * scale;
+            
+            double a1 = (_vm.StartingAngle - _vm.IntegrationAngle) * (Math.PI / 180.0);
+            double a2 = (_vm.StartingAngle + _vm.IntegrationAngle) * (Math.PI / 180.0);
+
+            Point pCenter = new Point(screenX, screenY);
+            
+            Point p1 = new Point(screenX + r * Math.Cos(a1), screenY - r * Math.Sin(a1));
+            Point p2 = new Point(screenX + r * Math.Cos(a2), screenY - r * Math.Sin(a2));
+
+            var geo = new PathGeometry();
+            var figure = new PathFigure { StartPoint = pCenter, IsClosed = true };
+            figure.Segments.Add(new LineSegment { Point = p1 });
+            
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = p2,
+                Size = new Size(r, r),
+                SweepDirection = SweepDirection.CounterClockwise,
+                IsLargeArc = _vm.IntegrationAngle > 90
+            });
+
+            geo.Figures.Add(figure);
+            _sectorOverlay.Data = geo;
+            _sectorOverlay.IsVisible = true;
+        }
     }
 
     private void HideCrosshair()
@@ -215,6 +327,7 @@ public partial class RadialProfileToolView : Window
         if (_lineH != null) _lineH.IsVisible = false;
         if (_lineV != null) _lineV.IsVisible = false;
         if (_circle != null) _circle.IsVisible = false;
+        if (_sectorOverlay != null) _sectorOverlay.IsVisible = false;
     }
 
     private void OnViewportPointerPressed(object? sender, PointerPressedEventArgs e)

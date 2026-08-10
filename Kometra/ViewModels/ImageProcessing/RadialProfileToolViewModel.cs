@@ -37,6 +37,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     private FitsRenderer? _originalRenderer;
 
     public event Action? RequestClose;
+    public event Action<string>? SavePlotRequested;
 
     public bool DialogResult { get; private set; } = false;
     public List<string> ResultPaths { get; private set; } = new();
@@ -46,7 +47,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_sourceFiles.Count}";
 
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _statusMessage = "Pronto. Seleziona un punto sull'immagine per centrare il profilo.";
+    [ObservableProperty] private string _statusMessage = "Pronto. Sposta il centro e imposta i parametri, poi premi 'Calcola Anteprima'.";
 
     [ObservableProperty] private double _centerX = 0.0;
     [ObservableProperty] private double _centerY = 0.0;
@@ -54,6 +55,17 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _stepSize = 1.0;
     [ObservableProperty] private RadialProfileMode _selectedMode = RadialProfileMode.Mean;
     [ObservableProperty] private string? _resultFilePath;
+    [ObservableProperty] private double _startingAngle = 0.0;     
+    [ObservableProperty] private double _integrationAngle = 180.0; 
+
+    // NUOVO: Controlla la visibilità del grafico e del bottone esporta
+    [ObservableProperty] private bool _hasCalculatedProfile = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExportButtonText))]
+    private int _selectedTabIndex = 0;
+
+    public string ExportButtonText => SelectedTabIndex == 0 ? "Esporta Grafico PNG" : "Esporta CSV";
 
     [ObservableProperty] private bool _isPreviewActive = false;
     [ObservableProperty] private FitsRenderer? _viewport;
@@ -93,7 +105,9 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         CenterY = CenterY,
         MaxRadius = MaxRadius,
         StepSize = StepSize,
-        Mode = SelectedMode
+        Mode = SelectedMode,
+        StartingAngle = StartingAngle, 
+        IntegrationAngle = IntegrationAngle
     };
 
     private async Task InitializeAsync()
@@ -123,8 +137,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 Viewport = _originalRenderer;
                 IsPreviewActive = false;
             }
-
-            await CalculateProfileAsync();
         }
         catch (Exception ex)
         {
@@ -142,23 +154,25 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
         CenterX = Math.Round(imageCoordinates.X, 1);
         CenterY = Math.Round(imageCoordinates.Y, 1);
-        await CalculateProfileAsync();
+        
+        await Task.CompletedTask; // Il calcolo aspetta il bottone Anteprima
     }
 
     [RelayCommand]
-    private async Task CalculateProfileAsync()
+    private async Task CalculatePreviewAsync()
     {
         if (_sourceFiles.Count == 0) return;
         var file = _sourceFiles[Navigator.CurrentIndex];
 
         IsLoading = true;
-        StatusMessage = "Calcolo del profilo radiale in corso...";
-        
+        StatusMessage = "Calcolo del profilo e dell'anteprima 2D in corso...";
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
         try
         {
+            // 1. Calcola il profilo radiale e aggiorna l'UI del Grafico
             var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
             
             ProfilePoints.Clear();
@@ -167,33 +181,17 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 ProfilePoints.Add(pt);
             }
 
-            StatusMessage = $"Profilo calcolato: {ProfilePoints.Count} anelli analizzati.";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "Calcolo annullato.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore di calcolo: {ex.Message}";
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
+            if (ProfilePoints.Count > 0)
+            {
+                HasCalculatedProfile = true; // Sblocca grafici e tabelle
+            }
+            else
+            {
+                StatusMessage = "Nessun punto calcolato, impossibile generare anteprima.";
+                return;
+            }
 
-    [RelayCommand]
-    private async Task CalculatePreviewAsync()
-    {
-        if (_sourceFiles.Count == 0 || ProfilePoints.Count == 0) return;
-        var file = _sourceFiles[Navigator.CurrentIndex];
-
-        IsLoading = true;
-        StatusMessage = "Calcolo modello 2D radiale in corso...";
-
-        try
-        {
+            // 2. Genera il modello FITS 2D sintetico
             string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "RadialModels");
             Directory.CreateDirectory(outputDir);
             string tempPath = Path.Combine(outputDir, $"RadialModel_{Guid.NewGuid():N}.fits");
@@ -245,15 +243,19 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 {
                     Viewport = renderer;
                 });
-            });
+            }, _cts.Token);
 
             ResultFilePath = tempPath;
             IsPreviewActive = true;
-            StatusMessage = "Anteprima modello 2D radiale generata. Premi Applica per creare il nodo sulla Board.";
+            StatusMessage = "Anteprima generata e grafico aggiornato. Premi Applica per creare il nodo.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Calcolo annullato.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Errore generazione anteprima: {ex.Message}";
+            StatusMessage = $"Errore: {ex.Message}";
         }
         finally
         {
@@ -269,45 +271,65 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
             Viewport = _originalRenderer;
         }
         IsPreviewActive = false;
-        StatusMessage = "Ripristinata immagine originale.";
+        StatusMessage = "Ripristinata immagine originale. Il grafico mostra ancora gli ultimi dati calcolati.";
     }
 
     [RelayCommand]
-    private async Task ExportCsvAsync()
+    private async Task ExportDataAsync()
     {
         if (ProfilePoints.Count == 0) return;
 
-        try
+        if (SelectedTabIndex == 0) 
         {
-            string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
-                "Esporta Profilo Radiale CSV",
-                "radial_profile.csv");
-
-            if (string.IsNullOrWhiteSpace(destinationPath)) return;
-
-            var sb = new StringBuilder();
-            sb.AppendLine("Radius,Value,StandardDeviation,PixelCount");
-
-            foreach (var pt in ProfilePoints)
+            try
             {
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                    "{0:F2},{1:F4},{2:F4},{3}",
-                    pt.Radius,
-                    pt.Value,
-                    pt.StandardDeviation,
-                    pt.PixelCount));
-            }
+                string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
+                    "Esporta Grafico PNG",
+                    "radial_profile.png");
 
-            await File.WriteAllTextAsync(destinationPath, sb.ToString(), Encoding.UTF8);
-            StatusMessage = $"Dati esportati con successo in: {Path.GetFileName(destinationPath)}";
+                if (string.IsNullOrWhiteSpace(destinationPath)) return;
+
+                SavePlotRequested?.Invoke(destinationPath);
+                StatusMessage = $"Grafico esportato con successo in: {Path.GetFileName(destinationPath)}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Errore durante l'esportazione del grafico: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        else 
         {
-            StatusMessage = $"Errore durante l'esportazione CSV: {ex.Message}";
+            try
+            {
+                string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
+                    "Esporta Profilo Radiale CSV",
+                    "radial_profile.csv");
+
+                if (string.IsNullOrWhiteSpace(destinationPath)) return;
+
+                var sb = new StringBuilder();
+                sb.AppendLine("Radius,Value,StandardDeviation,PixelCount");
+
+                foreach (var pt in ProfilePoints)
+                {
+                    sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                        "{0:F2},{1:F4},{2:F4},{3}",
+                        pt.Radius,
+                        pt.Value,
+                        pt.StandardDeviation,
+                        pt.PixelCount));
+                }
+
+                await File.WriteAllTextAsync(destinationPath, sb.ToString(), Encoding.UTF8);
+                StatusMessage = $"Dati esportati con successo in: {Path.GetFileName(destinationPath)}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Errore durante l'esportazione CSV: {ex.Message}";
+            }
         }
     }
 
-    // --- MODIFICATO PER LA SEQUENZA COMPLETA ---
     [RelayCommand]
     private async Task ApplyAsync()
     {
@@ -427,7 +449,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                     await renderer.InitializeAsync();
                     
                     Viewport = renderer;
-                    await CalculateProfileAsync();
                 }
             }
             else
