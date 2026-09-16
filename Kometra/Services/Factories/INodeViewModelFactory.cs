@@ -11,4 +11,5 @@ public interface INodeViewModelFactory
     
     // Crea un nodo da un elenco di percorsi (sequenza)
     Task<MultipleImagesNodeViewModel> CreateMultipleImagesNodeAsync(List<string> paths, double x, double y);
+    Task<GraphNodeViewModel> CreateGraphNodeAsync(List<string> imagePaths, string csvPath, string title, double x, double y);
 }

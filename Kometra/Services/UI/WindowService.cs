@@ -319,7 +319,7 @@ public class WindowService : IWindowService
         var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>(); // <-- NUOVO
 
         // Creazione del ViewModel passando anche dataManager come quinto parametro
-        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter, dataManager);
+        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter, dataManager, this);
         
         // Creazione della View e assegnazione del DataContext
         var view = new PhotometricClippingToolView { DataContext = viewModel };

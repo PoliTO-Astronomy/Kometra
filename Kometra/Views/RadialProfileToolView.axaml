@@ -26,45 +26,24 @@
     <Window.Styles>
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
 
+        <!-- Usa il colore dinamico viola per il tasto Calcola -->
         <Style Selector="Button.calculate">
-            <Setter Property="Background" Value="#8058E8"/>
+            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="10,8"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.calculate:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#9470F0"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-        <Style Selector="Button.calculate:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#444444"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
+            <Setter Property="Opacity" Value="0.9"/>
         </Style>
 
         <Style Selector="NumericUpDown:disabled">
             <Setter Property="Opacity" Value="0.5"/>
-        </Style>
-        <Style Selector="NumericUpDown:disabled /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton">
-            <Setter Property="Foreground" Value="#777777"/>
-            <Setter Property="BorderBrush" Value="#444444"/>
-            <Setter Property="Background" Value="#2A2A2A"/>
-        </Style>
-        <Style Selector="NumericUpDown:disabled /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton /template/ PathIcon">
-            <Setter Property="Foreground" Value="#777777"/>
-        </Style>
-
-        <Style Selector="DataValidationErrors">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <ContentPresenter Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
-                </ControlTemplate>
-            </Setter>
-            <Setter Property="ErrorTemplate" Value="{x:Null}" />
         </Style>
     </Window.Styles>
 
@@ -80,55 +59,37 @@
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <StackPanel Spacing="10" IsEnabled="{Binding !IsPreviewActive}">
+                    <StackPanel Spacing="10" IsEnabled="{Binding CanModifyInput}">
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Centro X (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="CenterXBox"
-                                               Value="{Binding CenterX, Mode=TwoWay}"
-                                               Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="CenterXBox" Value="{Binding CenterX, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Centro Y (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="CenterYBox"
-                                               Value="{Binding CenterY, Mode=TwoWay}"
-                                               Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="CenterYBox" Value="{Binding CenterY, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Raggio Max (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="MaxRadiusBox"
-                                               Value="{Binding MaxRadius, Mode=TwoWay}"
-                                               Minimum="5" Maximum="2000" Increment="5" FormatString="F0"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="MaxRadiusBox" Value="{Binding MaxRadius, Mode=TwoWay}" Minimum="5" Maximum="2000" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Step / Bin (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StepSizeBox"
-                                               Value="{Binding StepSize, Mode=TwoWay}"
-                                               Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="StepSizeBox" Value="{Binding StepSize, Mode=TwoWay}" Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Angolo Partenza (°)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StartingAngleBox"
-                                               Value="{Binding StartingAngle, Mode=TwoWay}"
-                                               Minimum="-360" Maximum="360" Increment="5" FormatString="F0"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="StartingAngleBox" Value="{Binding StartingAngle, Mode=TwoWay}" Minimum="-360" Maximum="360" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Angolo Integraz. (°)" Classes="paramLabel"/>
-                                <NumericUpDown Name="IntegrationAngleBox"
-                                               Value="{Binding IntegrationAngle, Mode=TwoWay}"
-                                               Minimum="1" Maximum="180" Increment="5" FormatString="F0"
-                                               LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="IntegrationAngleBox" Value="{Binding IntegrationAngle, Mode=TwoWay}" Minimum="1" Maximum="180" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
@@ -145,26 +106,24 @@
                     <Button Command="{Binding CalculatePreviewCommand}" 
                             Content="Calcola Anteprima"
                             Classes="calculate"
-                            IsVisible="{Binding !IsPreviewActive}"
+                            IsVisible="{Binding !HasCalculatedProfile}"
                             HorizontalAlignment="Stretch" 
-                            HorizontalContentAlignment="Center"
                             Margin="0,4,0,0"/>
 
-                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding IsPreviewActive}" Margin="0,4,0,0">
-                        <Button Grid.Column="0" Content="Indietro" Command="{Binding BackToOriginalCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                        <Button Grid.Column="2" Content="Applica" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding HasCalculatedProfile}" Margin="0,4,0,0">
+                        <!-- Usa le classi globali cancel (Rosso) e apply (Verde) -->
+                        <Button Grid.Column="0" Content="Annulla" Command="{Binding ResetToPreviewCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Content="Conferma" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <!-- CONTENITORE GRAFICO CON PLACEHOLDER -->
-            <!-- CONTENITORE GRAFICO CON PLACEHOLDER -->
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
                     <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
                                 HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                         <avalonia:MaterialIcon Kind="ChartBoxOutline" Width="48" Height="48" Foreground="#444444"/>
-                        <TextBlock Text="In attesa del calcolo dell'anteprima..." 
+                        <TextBlock Text="In attesa dell'anteprima..." 
                                    Foreground="#777777" FontSize="14" FontStyle="Italic" 
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
@@ -222,13 +181,26 @@
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" PointerPressed="OnViewportPointerPressed" ClipToBounds="True">
                     <ContentControl x:Name="ViewportControl" Content="{Binding Viewport}" />
 
-                    <Canvas x:Name="CrosshairOverlay" IsHitTestVisible="False" ClipToBounds="True" IsVisible="{Binding !IsPreviewActive}">
+                    <Canvas x:Name="CrosshairOverlay" IsHitTestVisible="False" ClipToBounds="True">
                         <Path x:Name="SectorOverlay" Stroke="Yellow" StrokeThickness="1.5" Fill="#22FFFF00" IsVisible="False" />
-                        
                         <Line x:Name="CrosshairLineH" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
                         <Line x:Name="CrosshairLineV" Stroke="#FF3333" StrokeThickness="1.5" StrokeDashArray="4,2" IsVisible="False" />
                         <Ellipse x:Name="CrosshairCircle" Width="14" Height="14" Stroke="#FF3333" StrokeThickness="1.5" Fill="Transparent" IsVisible="False" />
                     </Canvas>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
+                                IsVisible="{Binding HasMultipleImages}">
+                        <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="Immagine precedente">
+                            <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
+                        </Button>
+                        <Border Background="#66000000" CornerRadius="4" Padding="8,0" VerticalAlignment="Stretch">
+                            <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                        </Border>
+                        <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="Immagine successiva">
+                            <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
+                        </Button>
+                    </StackPanel>
 
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
@@ -237,27 +209,6 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-            </Border>
-
-            <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0" 
-                    Padding="10,8" IsVisible="{Binding HasMultipleImages}">
-                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Button Command="{Binding Navigator.MoveToFirstCommand}" ToolTip.Tip="Prima immagine" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronDoubleLeft" Width="18" Height="18"/>
-                    </Button>
-                    <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="Immagine precedente" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronLeft" Width="18" Height="18"/>
-                    </Button>
-                    <Border Background="#2A2A2A" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="14,6" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                    </Border>
-                    <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="Immagine successiva" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronRight" Width="18" Height="18"/>
-                    </Button>
-                    <Button Command="{Binding Navigator.MoveToLastCommand}" ToolTip.Tip="Ultima immagine" Width="36" Height="34">
-                        <avalonia:MaterialIcon Kind="ChevronDoubleRight" Width="18" Height="18"/>
-                    </Button>
-                </StackPanel>
             </Border>
         </Grid>
 

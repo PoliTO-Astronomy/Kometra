@@ -27,22 +27,18 @@
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
 
         <Style Selector="Button.calculate">
-            <Setter Property="Background" Value="#8058E8"/>
+            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="10,8"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.calculate:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#9470F0"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-        <Style Selector="Button.calculate:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#444444"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
+            <Setter Property="Opacity" Value="0.9"/>
         </Style>
 
         <Style Selector="NumericUpDown:disabled">
@@ -54,7 +50,6 @@
         
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
-            <!-- TESTO INFORMATIVO -->
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
                 <TextBlock Text="TAGLIO FOTOMETRICO" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
                 <TextBlock Text="Clicca e trascina sull'immagine a destra per tracciare una linea di taglio ed estrarne il profilo di intensità." 
@@ -63,8 +58,7 @@
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <!-- RIMOSSO IsEnabled="{Binding !IsPreviewActive}" CHE CAUSAVA IL CRASH -->
-                    <StackPanel Spacing="10">
+                    <StackPanel Spacing="10" IsEnabled="{Binding CanModifyInput}">
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Partenza X (px)" Classes="paramLabel"/>
@@ -89,11 +83,16 @@
                     </StackPanel>
 
                     <Button Command="{Binding CalculateProfileCommand}" 
-                            Content="Calcola Taglio Fotometrico"
+                            Content="Calcola Anteprima"
                             Classes="calculate"
+                            IsVisible="{Binding !HasCalculatedProfile}"
                             HorizontalAlignment="Stretch" 
-                            HorizontalContentAlignment="Center"
                             Margin="0,4,0,0"/>
+
+                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding HasCalculatedProfile}" Margin="0,4,0,0">
+                        <Button Grid.Column="0" Command="{Binding ResetToPreviewCommand}" Content="Annulla" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <Button Grid.Column="2" Command="{Binding ApplyCommand}" Content="Conferma" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                    </Grid>
 
                     <Border Background="#161616" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="10">
                         <StackPanel Spacing="4">
@@ -104,13 +103,12 @@
                 </StackPanel>
             </Border>
 
-            <!-- CONTENITORE GRAFICO -->
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
                     <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
                                 HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                         <avalonia:MaterialIcon Kind="ChartBoxOutline" Width="48" Height="48" Foreground="#444444"/>
-                        <TextBlock Text="In attesa della linea di taglio..." 
+                        <TextBlock Text="In attesa dell'anteprima..." 
                                    Foreground="#777777" FontSize="14" FontStyle="Italic" 
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
@@ -156,7 +154,6 @@
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
             </Grid>
-
         </Grid>
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" Background="Transparent" />
@@ -164,6 +161,7 @@
         <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
             
             <Border Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                <!-- Rimosso IsEnabled="{Binding CanModifyInput}" per permettere clic freccette anche dopo aver calcolato! Il disegno linea è bloccato dal Code-Behind. -->
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" 
                       PointerPressed="OnViewportPointerPressed" 
                       PointerMoved="OnViewportPointerMoved"
@@ -172,10 +170,23 @@
                     
                     <ContentControl x:Name="ViewportControl" Content="{Binding Viewport}" />
 
-                    <!-- La linea vettoriale disegnata dall'UI -->
                     <Canvas x:Name="CrosshairOverlay" IsHitTestVisible="False" ClipToBounds="True">
                         <Line x:Name="CutLineOverlay" Stroke="#FF3333" StrokeThickness="2" IsVisible="False" />
                     </Canvas>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
+                                IsVisible="{Binding HasMultipleFiles}">
+                        <Button Command="{Binding PreviousImageCommand}" ToolTip.Tip="Immagine precedente">
+                            <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
+                        </Button>
+                        <Border Background="#66000000" CornerRadius="4" Padding="8,0" VerticalAlignment="Stretch">
+                            <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                        </Border>
+                        <Button Command="{Binding NextImageCommand}" ToolTip.Tip="Immagine successiva">
+                            <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
+                        </Button>
+                    </StackPanel>
 
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">

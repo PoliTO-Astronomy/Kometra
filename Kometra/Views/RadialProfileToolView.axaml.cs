@@ -121,10 +121,6 @@ public partial class RadialProfileToolView : Window
                 case nameof(RadialProfileToolViewModel.Viewport):
                     UpdateCrosshairPosition();
                     break;
-                case nameof(RadialProfileToolViewModel.IsPreviewActive):
-                    if (_vm.IsPreviewActive) HideCrosshair();
-                    else UpdateCrosshairPosition();
-                    break;
             }
         });
     }
@@ -229,7 +225,7 @@ public partial class RadialProfileToolView : Window
 
     private void UpdateCrosshairPosition()
     {
-        if (_vm == null || _vm.IsPreviewActive || _lineH == null || _lineV == null || _circle == null || _sectorOverlay == null)
+        if (_vm == null || _lineH == null || _lineV == null || _circle == null || _sectorOverlay == null)
         {
             HideCrosshair();
             return;
@@ -332,7 +328,8 @@ public partial class RadialProfileToolView : Window
 
     private void OnViewportPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_vm == null || _vm.IsPreviewActive) return;
+        // Blocca il click se il profilo è già calcolato
+        if (_vm == null || _vm.HasCalculatedProfile) return;
 
         var containerGrid = this.FindControl<Grid>("ImageContainerGrid");
         if (containerGrid == null ||

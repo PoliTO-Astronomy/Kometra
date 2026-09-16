@@ -126,10 +126,6 @@ public partial class BoardViewModel : ObservableObject
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // LOGICA SELEZIONE
-    // ---------------------------------------------------------------------------
-
     public void SetSelectedNode(BaseNodeViewModel? node) => SetSelectedNode(node, false);
 
     public void SetSelectedNode(BaseNodeViewModel? node, bool isModifierPressed)
@@ -142,7 +138,6 @@ public partial class BoardViewModel : ObservableObject
 
         if (!isModifierPressed)
         {
-            // Click pulito: azzera tutto e seleziona solo questo
             DeselectAllNodes();
             node.IsSelected = true;
             SelectedNodes.Add(node);
@@ -150,17 +145,14 @@ public partial class BoardViewModel : ObservableObject
         }
         else
         {
-            // Click con Modificatore (Multi-Selezione Illimitata)
             if (SelectedNodes.Contains(node))
             {
-                // Comportamento standard OS: Ctrl+Click su un elemento selezionato lo DESELEZIONA
                 node.IsSelected = false;
                 node.SelectionLetter = string.Empty;
                 SelectedNodes.Remove(node);
             }
             else
             {
-                // Aggiunge alla selezione senza alcun limite di numero
                 node.IsSelected = true;
                 SelectedNodes.Add(node);
             }
@@ -182,10 +174,8 @@ public partial class BoardViewModel : ObservableObject
 
     private void NotifySelectionCommands()
     {
-        // Pulisce tutte le lettere
         foreach (var n in Nodes) n.SelectionLetter = string.Empty;
 
-        // Assegna A e B SOLO se ci sono esattamente 2 nodi
         if (SelectedNodes.Count == 2)
         {
             SelectedNodes[0].SelectionLetter = "A";
@@ -223,10 +213,6 @@ public partial class BoardViewModel : ObservableObject
         SplitCommand.NotifyCanExecuteChanged();
     }
 
-    // ---------------------------------------------------------------------------
-    // HELPER POSIZIONAMENTO GRAFO
-    // ---------------------------------------------------------------------------
-
     private void RepositionNewNode(BaseNodeViewModel sourceNode, BaseNodeViewModel newNode, int index = 0)
     {
         double sourceHalfWidth = sourceNode.EstimatedTotalSize.Width / 2.0;
@@ -243,7 +229,6 @@ public partial class BoardViewModel : ObservableObject
         newNode.Y = sourceCenterY - newHalfHeight + offset;
     }
 
-    // [GRAFO: Add/Remove/Register] 
     private void AddNodeToGraph(BaseNodeViewModel node, string undoLabel)
     {
         var action = new DelegateAction(undoLabel,
@@ -274,8 +259,6 @@ public partial class BoardViewModel : ObservableObject
         _undoService.RecordAction(action);
     }
 
-    // --- GESTIONE RISULTATI ELABORAZIONE (COLLEGAMENTI) ---
-    
     private void RegisterProcessingResult(BaseNodeViewModel newNode, BaseNodeViewModel sourceNode, string tempFilePath, string undoLabel)
     {
         RegisterProcessingResult(newNode, new List<BaseNodeViewModel> { sourceNode }, tempFilePath, undoLabel);
@@ -331,13 +314,32 @@ public partial class BoardViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
     private async Task ShowPhotometricClippingWindow()
     {
-        await RunGenericProcessing(async (files, mode) => 
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        try 
         {
-            var paths = await _windowService.ShowPhotometricClippingWindowAsync(files, mode);
+            var resultPaths = await _windowService.ShowPhotometricClippingWindowAsync(inputFiles, imgNode.VisualizationMode);
             
-            return paths != null ? (paths, "(Photometric Clipping)") : null;
-            
-        }, "Photometric Clipping");
+            if (resultPaths != null && resultPaths.Count >= 2)
+            {
+                var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
+                string csvPath = resultPaths.Last();
+                string title = $"{imgNode.Title} (Photometric Clipping)";
+
+                // Calcolo dedicato per il nodo grafico senza toccare i nodi standard
+                double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
+                double targetX = imgNode.X + sourceWidth + DefaultNodeMarginX;
+                double targetY = imgNode.Y;
+
+                var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
+
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Photometric Clipping");
+            }
+        }
+        catch (Exception ex) { Debug.WriteLine($"ERRORE: {ex.Message}"); }
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
@@ -643,13 +645,38 @@ public partial class BoardViewModel : ObservableObject
         } catch(Exception ex) { Debug.WriteLine($"Stacking failed: {ex.Message}"); } 
     }
     
-    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    [RelayCommand(CanExecute = nameof(CanExportAnyNode))]
     private async Task ExportSelectedNode()
     {
-        var n = SelectedImageNode;
-        if (n == null) return;
-        var filePaths = n.CurrentFiles.Select(f => f.FilePath).ToList();
-        await _windowService.ShowExportWindowAsync(filePaths);
+        if (SelectedNodesCount != 1) return;
+        var node = SelectedNodes[0];
+
+        if (node is ImageNodeViewModel imageNode)
+        {
+            var filePaths = imageNode.CurrentFiles.Select(f => f.FilePath).ToList();
+            await _windowService.ShowExportWindowAsync(filePaths);
+        }
+        else if (node is GraphNodeViewModel graphNode)
+        {
+            // 1. Apre il menù di esportazione standard di Kometra per la sequenza dei PNG
+            if (graphNode.ImagePaths != null && graphNode.ImagePaths.Any())
+            {
+                await _windowService.ShowExportWindowAsync(graphNode.ImagePaths);
+            }
+
+            // 2. Continua a salvare silenziosamente il file dati CSV nella cartella Download
+            try
+            {
+                if (!string.IsNullOrEmpty(graphNode.CsvPath) && File.Exists(graphNode.CsvPath))
+                {
+                    string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    string baseFileName = graphNode.Title.Replace(" ", "_").Replace("(", "").Replace(")", "");
+                    string finalCsv = Path.Combine(downloadsPath, $"{baseFileName}_{DateTime.Now:HHmmss}.csv");
+                    File.Copy(graphNode.CsvPath, finalCsv, true);
+                }
+            }
+            catch (Exception ex) { Debug.WriteLine($"Errore esportazione CSV: {ex.Message}"); }
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveVideo))]
@@ -688,27 +715,68 @@ public partial class BoardViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
     private async Task ShowRadialProfileToolAsync()
     {
-        await RunGenericProcessing(async (files, mode) =>
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        try 
         {
-            var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
-                await _windowService.ShowRadialProfileWindowAsync(files.ToList()));
+            var resultPaths = await _windowService.ShowRadialProfileWindowAsync(inputFiles);
             
-            return (paths != null && paths.Any()) ? (paths, "(Radial Profile)") : null;
-            
-        }, "Radial Profile");
+            if (resultPaths != null && resultPaths.Count >= 2)
+            {
+                var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
+                string csvPath = resultPaths.Last();
+                string title = $"{imgNode.Title} (Radial Profile)";
+
+                double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
+                double targetX = imgNode.X + sourceWidth + DefaultNodeMarginX;
+                double targetY = imgNode.Y;
+
+                var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
+
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Profilo Radiale");
+            }
+        }
+        catch (Exception ex) 
+        { 
+            Debug.WriteLine($"ERRORE: {ex.Message}"); 
+        }
     }
     
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
     private async Task ShowEllipticalIsophotesWindowAsync()
     {
-        await RunGenericProcessing(async (files, mode) =>
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        try 
         {
-            var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
-                await _windowService.ShowEllipticalIsophoteWindowAsync(files.ToList()));
+            var resultPaths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+                await _windowService.ShowEllipticalIsophoteWindowAsync(inputFiles));
             
-            return (paths != null && paths.Any()) ? (paths, "(Isophotes)") : null;
-            
-        }, "Elliptical Isophotes");
+            if (resultPaths != null && resultPaths.Count >= 2)
+            {
+                var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
+                string csvPath = resultPaths.Last();
+                string title = $"{imgNode.Title} (Isophotes)";
+
+                double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
+                double targetX = imgNode.X + sourceWidth + DefaultNodeMarginX;
+                double targetY = imgNode.Y;
+
+                var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
+
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Isofote Ellittiche");
+            }
+        }
+        catch (Exception ex) 
+        { 
+            Debug.WriteLine($"ERRORE: {ex.Message}"); 
+        }
     }
     
     private bool CanUndo() => _undoService.CanUndo;
@@ -731,6 +799,9 @@ public partial class BoardViewModel : ObservableObject
     private bool CanJoin() => SelectedNodesCount >= 2;
     private bool CanSplit() => SelectedNodesCount == 1 && SelectedImageNode?.Navigator.TotalCount > 1;
 
+    private bool CanExportAnyNode() => SelectedNodesCount == 1 && (SelectedNodes[0] is ImageNodeViewModel || SelectedNodes[0] is GraphNodeViewModel);
+    
+    // Mantiene bloccati i filtri d'immagine sui GraphNode
     private bool CanExecuteOnImageNode() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel;
     private bool CanEditHeader() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.ActiveFile != null;
     private bool CanSetVisualizationMode(VisualizationMode mode) => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.VisualizationMode != mode;

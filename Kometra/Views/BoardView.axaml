@@ -99,6 +99,9 @@
                     <DataTemplate DataType="nodes:MultipleImagesNodeViewModel">
                         <views:MultipleImagesNodeView />
                     </DataTemplate>
+                    <DataTemplate DataType="nodes:GraphNodeViewModel">
+                        <views:GraphNodeView />
+                    </DataTemplate>
                 </ItemsControl.DataTemplates>
 
                 <ItemsControl.ItemsPanel>

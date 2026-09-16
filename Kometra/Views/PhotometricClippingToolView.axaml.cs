@@ -155,7 +155,7 @@ public partial class PhotometricClippingToolView : Window
                 ys[i] = _vm.ProfileData[i].Value;
             }
 
-            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
+            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8")); // Viola abbinato al tasto
             line.LineWidth = 2.0f;
             
             plotControl.Plot.Axes.Title.Label.Text = "Taglio Fotometrico";
@@ -166,17 +166,16 @@ public partial class PhotometricClippingToolView : Window
         plotControl.Refresh();
     }
 
-    // --- LOGICA MOUSE E DRAG (SICURA) ---
     private void OnViewportPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_vm == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        // Se l'anteprima è calcolata, blocca i click
+        if (_vm == null || _vm.HasCalculatedProfile || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
         var pos = GetFitsCoordinates(e);
         if (pos == null) return;
 
         _isDragging = true;
         
-        // Imposta l'inizio e la fine allo stesso punto iniziale
         _vm.StartX = (int)pos.Value.X;
         _vm.StartY = (int)pos.Value.Y;
         _vm.EndX = (int)pos.Value.X;
@@ -187,12 +186,11 @@ public partial class PhotometricClippingToolView : Window
 
     private void OnViewportPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_isDragging || _vm == null) return;
+        if (!_isDragging || _vm == null || _vm.HasCalculatedProfile) return;
 
         var pos = GetFitsCoordinates(e);
         if (pos == null) return;
 
-        // Muove solo il punto di arrivo mentre trascini
         _vm.EndX = (int)pos.Value.X;
         _vm.EndY = (int)pos.Value.Y;
         
@@ -201,12 +199,8 @@ public partial class PhotometricClippingToolView : Window
 
     private void OnViewportPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_isDragging || _vm == null) return;
+        if (!_isDragging || _vm == null || _vm.HasCalculatedProfile) return;
         _isDragging = false;
-        
-        // Rilascio del mouse: LA FUNZIONE E' TOTALMENTE VUOTA. 
-        // Nessun reset dei dati, nessun reset della visibilità.
-        // Resta tutto in attesa del pulsante manuale.
     }
 
     private Point? GetFitsCoordinates(PointerEventArgs e)

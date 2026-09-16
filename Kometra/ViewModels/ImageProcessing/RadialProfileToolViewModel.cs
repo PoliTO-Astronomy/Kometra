@@ -34,8 +34,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     private readonly List<FitsFileReference> _sourceFiles;
     private CancellationTokenSource? _cts;
 
-    private FitsRenderer? _originalRenderer;
-
     public event Action? RequestClose;
     public event Action<string>? SavePlotRequested;
 
@@ -54,20 +52,21 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _maxRadius = 100.0;
     [ObservableProperty] private double _stepSize = 1.0;
     [ObservableProperty] private RadialProfileMode _selectedMode = RadialProfileMode.Mean;
-    [ObservableProperty] private string? _resultFilePath;
     [ObservableProperty] private double _startingAngle = 0.0;     
     [ObservableProperty] private double _integrationAngle = 180.0; 
 
-    // NUOVO: Controlla la visibilità del grafico e del bottone esporta
-    [ObservableProperty] private bool _hasCalculatedProfile = false;
+    [ObservableProperty] 
+    [NotifyPropertyChangedFor(nameof(CanModifyInput))]
+    private bool _hasCalculatedProfile = false;
+
+    public bool CanModifyInput => !HasCalculatedProfile;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExportButtonText))]
     private int _selectedTabIndex = 0;
 
-    public string ExportButtonText => SelectedTabIndex == 0 ? "Esporta Grafico PNG" : "Esporta CSV";
+    public string ExportButtonText => SelectedTabIndex == 0 ? "Esporta PNG" : "Esporta CSV";
 
-    [ObservableProperty] private bool _isPreviewActive = false;
     [ObservableProperty] private FitsRenderer? _viewport;
 
     public ObservableCollection<RadialProfileDataPoint> ProfilePoints { get; } = new();
@@ -131,11 +130,10 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 using Mat imgMat = _dataManager.GetMatFromHdu(hdu);
                 Array pixelData = _converter.MatToRaw(imgMat, FitsBitDepth.Float);
                 
-                _originalRenderer = await _rendererFactory.CreateAsync(pixelData, hdu.Header ?? new FitsHeader());
-                await _originalRenderer.InitializeAsync();
+                var renderer = await _rendererFactory.CreateAsync(pixelData, hdu.Header ?? new FitsHeader());
+                await renderer.InitializeAsync();
                 
-                Viewport = _originalRenderer;
-                IsPreviewActive = false;
+                Viewport = renderer;
             }
         }
         catch (Exception ex)
@@ -150,12 +148,12 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
     public async Task OnImageClickedAsync(Avalonia.Point imageCoordinates)
     {
-        if (IsPreviewActive) return;
+        if (HasCalculatedProfile) return;
 
         CenterX = Math.Round(imageCoordinates.X, 1);
         CenterY = Math.Round(imageCoordinates.Y, 1);
         
-        await Task.CompletedTask; // Il calcolo aspetta il bottone Anteprima
+        await Task.CompletedTask; 
     }
 
     [RelayCommand]
@@ -165,14 +163,13 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         var file = _sourceFiles[Navigator.CurrentIndex];
 
         IsLoading = true;
-        StatusMessage = "Calcolo del profilo e dell'anteprima 2D in corso...";
+        StatusMessage = "Calcolo del profilo in corso...";
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
         try
         {
-            // 1. Calcola il profilo radiale e aggiorna l'UI del Grafico
             var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
             
             ProfilePoints.Clear();
@@ -183,71 +180,13 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
             if (ProfilePoints.Count > 0)
             {
-                HasCalculatedProfile = true; // Sblocca grafici e tabelle
+                HasCalculatedProfile = true; 
+                StatusMessage = "Anteprima calcolata. Premi Conferma per generare i modelli sulla board.";
             }
             else
             {
                 StatusMessage = "Nessun punto calcolato, impossibile generare anteprima.";
-                return;
             }
-
-            // 2. Genera il modello FITS 2D sintetico
-            string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "RadialModels");
-            Directory.CreateDirectory(outputDir);
-            string tempPath = Path.Combine(outputDir, $"RadialModel_{Guid.NewGuid():N}.fits");
-
-            await Task.Run(async () =>
-            {
-                var dataPackage = _dataManager.LoadDataPackageAsync(file.FilePath).GetAwaiter().GetResult();
-                var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-                if (hdu == null) return;
-
-                using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                int rows = srcMat.Rows;
-                int cols = srcMat.Cols;
-
-                using Mat modelMat = new Mat(rows, cols, MatType.CV_32FC1, new Scalar(0));
-
-                var sortedPoints = ProfilePoints.OrderBy(p => p.Radius).ToList();
-                double maxR = sortedPoints.Last().Radius;
-
-                var indexer = modelMat.GetGenericIndexer<float>();
-                for (int y = 0; y < rows; y++)
-                {
-                    for (int x = 0; x < cols; x++)
-                    {
-                        double dx = x - CenterX;
-                        double dy = y - CenterY;
-                        double r = Math.Sqrt(dx * dx + dy * dy);
-
-                        if (r <= maxR && sortedPoints.Count > 0)
-                        {
-                            indexer[y, x] = (float)EvaluateProfileValue(sortedPoints, r);
-                        }
-                        else
-                        {
-                            indexer[y, x] = 0f;
-                        }
-                    }
-                }
-
-                Array rawPixels = _converter.MatToRaw(modelMat, FitsBitDepth.Float);
-                var header = hdu.Header ?? new FitsHeader();
-
-                await _dataManager.SaveDataAsync(tempPath, rawPixels, header);
-
-                var renderer = await _rendererFactory.CreateAsync(rawPixels, header);
-                await renderer.InitializeAsync();
-
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    Viewport = renderer;
-                });
-            }, _cts.Token);
-
-            ResultFilePath = tempPath;
-            IsPreviewActive = true;
-            StatusMessage = "Anteprima generata e grafico aggiornato. Premi Applica per creare il nodo.";
         }
         catch (OperationCanceledException)
         {
@@ -264,14 +203,11 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void BackToOriginal()
+    private void ResetToPreview()
     {
-        if (_originalRenderer != null)
-        {
-            Viewport = _originalRenderer;
-        }
-        IsPreviewActive = false;
-        StatusMessage = "Ripristinata immagine originale. Il grafico mostra ancora gli ultimi dati calcolati.";
+        HasCalculatedProfile = false;
+        ProfilePoints.Clear();
+        StatusMessage = "Modalità tracciamento sbloccata. Sposta il centro e ricalcola l'anteprima.";
     }
 
     [RelayCommand]
@@ -284,7 +220,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
             try
             {
                 string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
-                    "Esporta Grafico PNG",
+                    "Esporta PNG",
                     "radial_profile.png");
 
                 if (string.IsNullOrWhiteSpace(destinationPath)) return;
@@ -294,7 +230,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Errore durante l'esportazione del grafico: {ex.Message}";
+                StatusMessage = $"Errore esportazione: {ex.Message}";
             }
         }
         else 
@@ -314,10 +250,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 {
                     sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
                         "{0:F2},{1:F4},{2:F4},{3}",
-                        pt.Radius,
-                        pt.Value,
-                        pt.StandardDeviation,
-                        pt.PixelCount));
+                        pt.Radius, pt.Value, pt.StandardDeviation, pt.PixelCount));
                 }
 
                 await File.WriteAllTextAsync(destinationPath, sb.ToString(), Encoding.UTF8);
@@ -325,7 +258,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Errore durante l'esportazione CSV: {ex.Message}";
+                StatusMessage = $"Errore esportazione CSV: {ex.Message}";
             }
         }
     }
@@ -334,67 +267,83 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     private async Task ApplyAsync()
     {
         IsLoading = true;
-        StatusMessage = "Generazione modelli 2D radiali per l'intera sequenza...";
+        StatusMessage = "Generazione dei grafici della sequenza in corso...";
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
         try
         {
-            string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "RadialModels");
+            string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "RadialProfiles");
             Directory.CreateDirectory(outputDir);
-            var generatedPaths = new List<string>();
 
+            // 1. Genera il CSV globale della selezione attuale
+            string baseId = Guid.NewGuid().ToString("N");
+            string csvPath = Path.Combine(outputDir, $"RadialProfile_{baseId}.csv");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("Radius,Value,StandardDeviation,PixelCount");
+            foreach (var pt in ProfilePoints)
+            {
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "{0:F2},{1:F4},{2:F4},{3}",
+                    pt.Radius, pt.Value, pt.StandardDeviation, pt.PixelCount));
+            }
+            await File.WriteAllTextAsync(csvPath, sb.ToString(), Encoding.UTF8);
+
+            var pngPaths = new List<string>();
+
+            // 2. Genera i plot PNG per ogni file della sequenza FITS
             foreach (var file in _sourceFiles)
             {
                 var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
                 if (points == null || points.Count == 0) continue;
 
-                string tempPath = Path.Combine(outputDir, $"RadialModel_{Guid.NewGuid():N}.fits");
+                string pngPath = Path.Combine(outputDir, $"RadialProfile_{Guid.NewGuid():N}.png");
 
-                await Task.Run(async () =>
+                await Task.Run(() =>
                 {
-                    var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
-                    var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-                    if (hdu == null) return;
+                    var plt = new ScottPlot.Plot();
+                    plt.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
+                    plt.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
+                    plt.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
+                    plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
 
-                    using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                    int rows = srcMat.Rows;
-                    int cols = srcMat.Cols;
+                    double[] xs = new double[points.Count];
+                    double[] ys = new double[points.Count];
 
-                    using Mat modelMat = new Mat(rows, cols, MatType.CV_32FC1, new Scalar(0));
-                    var sortedPoints = points.OrderBy(p => p.Radius).ToList();
-                    double maxR = sortedPoints.Last().Radius;
-
-                    var indexer = modelMat.GetGenericIndexer<float>();
-                    for (int y = 0; y < rows; y++)
+                    for (int i = 0; i < points.Count; i++)
                     {
-                        for (int x = 0; x < cols; x++)
-                        {
-                            double dx = x - CenterX;
-                            double dy = y - CenterY;
-                            double r = Math.Sqrt(dx * dx + dy * dy);
-
-                            if (r <= maxR && sortedPoints.Count > 0)
-                            {
-                                indexer[y, x] = (float)EvaluateProfileValue(sortedPoints, r);
-                            }
-                            else
-                            {
-                                indexer[y, x] = 0f;
-                            }
-                        }
+                        xs[i] = points[i].Radius;
+                        ys[i] = points[i].Value;
                     }
 
-                    Array rawPixels = _converter.MatToRaw(modelMat, FitsBitDepth.Float);
-                    var header = hdu.Header ?? new FitsHeader();
-                    await _dataManager.SaveDataAsync(tempPath, rawPixels, header);
+                    var scatter = plt.Add.Scatter(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
+                    scatter.MarkerStyle.Size = 0;
+                    scatter.LineStyle.Width = 2.0f;
+
+                    string yLabel = SelectedMode switch
+                    {
+                        RadialProfileMode.Sum => "Total Intensity [ADU]",
+                        RadialProfileMode.Median => "Median Intensity [ADU]",
+                        _ => "Normalized Integrated Intensity"
+                    };
+
+                    plt.Axes.Title.Label.Text = "Radial Profile";
+                    plt.Axes.Bottom.Label.Text = "Radius [pixels]";
+                    plt.Axes.Left.Label.Text = yLabel;
+                    plt.Axes.AutoScale();
+
+                    plt.SavePng(pngPath, 1200, 800);
                 }, _cts.Token);
 
-                generatedPaths.Add(tempPath);
+                pngPaths.Add(pngPath);
             }
 
-            ResultPaths = generatedPaths;
+            // Aggiungiamo i PNG seguiti dal CSV (stesso schema del PhotometricClipping)
+            ResultPaths = pngPaths;
+            ResultPaths.Add(csvPath);
+
             DialogResult = true;
             RequestClose?.Invoke();
         }
@@ -439,21 +388,20 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
         try
         {
-            if (!IsPreviewActive)
+            var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
+            var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
+            if (hdu?.PixelData != null && hdu.Header != null)
             {
-                var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
-                var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-                if (hdu?.PixelData != null && hdu.Header != null)
+                var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
+                await renderer.InitializeAsync();
+                
+                Viewport?.Dispose();
+                Viewport = renderer;
+
+                if (HasCalculatedProfile)
                 {
-                    var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
-                    await renderer.InitializeAsync();
-                    
-                    Viewport = renderer;
+                    await CalculatePreviewAsync();
                 }
-            }
-            else
-            {
-                await CalculatePreviewAsync(); 
             }
         }
         catch (Exception ex)
@@ -465,6 +413,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         Navigator.IndexChanged -= OnNavigatorIndexChanged;
+        Viewport?.Dispose();
         _cts?.Dispose();
     }
 }
