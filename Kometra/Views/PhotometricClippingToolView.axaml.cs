@@ -96,7 +96,7 @@ public partial class PhotometricClippingToolView : Window
     private void UpdateBox(string name, double value)
     {
         var box = this.FindControl<NumericUpDown>(name);
-        if (box != null && !box.IsFocused)
+        if (box != null) 
         {
             box.Value = (decimal)value;
             box.Text = value.ToString(CultureInfo.CurrentCulture);
@@ -112,25 +112,79 @@ public partial class PhotometricClippingToolView : Window
         UpdateBox("EndYBox", _vm.EndY);
     }
 
-    private void OnManualInputCommit(object? sender, RoutedEventArgs e)
+    private void CommitValue(NumericUpDown box, double newValue)
     {
-        if (_vm == null || sender is not NumericUpDown box) return;
+        if (_vm == null) return;
+        bool hasChanged = false;
+        int val = (int)newValue;
 
-        string input = (box.Text ?? string.Empty).Replace(',', '.');
-        var culture = CultureInfo.InvariantCulture;
+        if (box.Name == "StartXBox" && _vm.StartX != val) 
+        { 
+            _vm.StartX = val; 
+            hasChanged = true; 
+        }
+        else if (box.Name == "StartYBox" && _vm.StartY != val) 
+        { 
+            _vm.StartY = val; 
+            hasChanged = true; 
+        }
+        else if (box.Name == "EndXBox" && _vm.EndX != val) 
+        { 
+            _vm.EndX = val; 
+            hasChanged = true; 
+        }
+        else if (box.Name == "EndYBox" && _vm.EndY != val) 
+        { 
+            _vm.EndY = val; 
+            hasChanged = true; 
+        }
 
-        if (box.Name == "StartXBox" && double.TryParse(input, NumberStyles.Any, culture, out double sx)) _vm.StartX = (int)sx;
-        else if (box.Name == "StartYBox" && double.TryParse(input, NumberStyles.Any, culture, out double sy)) _vm.StartY = (int)sy;
-        else if (box.Name == "EndXBox" && double.TryParse(input, NumberStyles.Any, culture, out double ex)) _vm.EndX = (int)ex;
-        else if (box.Name == "EndYBox" && double.TryParse(input, NumberStyles.Any, culture, out double ey)) _vm.EndY = (int)ey;
+        if (hasChanged && !_vm.IsDragging)
+        {
+            _ = _vm.CalculateProfileAsync();
+        }
+    }
 
+    private void OnBoxValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        if (_vm == null || sender is not NumericUpDown box || !e.NewValue.HasValue) return;
+
+        double newValue = (double)e.NewValue.Value;
+        double oldValue = e.OldValue.HasValue ? (double)e.OldValue.Value : 0;
+        double diff = Math.Abs(newValue - oldValue);
+
+        double increment = (double)(box.Increment > 0 ? box.Increment : 1);
+
+        // Se l'input proviene dalla tastiera, non eseguire il calcolo continuo
+        if (box.IsKeyboardFocusWithin && Math.Abs(diff - increment) > 0.0001)
+        {
+            return;
+        }
+
+        CommitValue(box, newValue);
+    }
+
+    private void OnInputLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is NumericUpDown box && box.Value.HasValue)
+        {
+            CommitValue(box, (double)box.Value.Value);
+        }
+        // Ripristina l'interfaccia senza mostrare errori in caso di testo vuoto
         UpdateUiValues();
-        UpdateLineOverlay();
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) { this.Focus(); e.Handled = true; }
+        if (e.Key == Key.Enter) 
+        { 
+            if (sender is NumericUpDown box && box.Value.HasValue)
+            {
+                CommitValue(box, (double)box.Value.Value);
+            }
+            this.Focus(); 
+            e.Handled = true; 
+        }
     }
 
     private void UpdatePlot()
@@ -139,10 +193,11 @@ public partial class PhotometricClippingToolView : Window
         if (plotControl == null || _vm == null) return;
 
         plotControl.Plot.Clear();
-        plotControl.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-        plotControl.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-        plotControl.Plot.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
-        plotControl.Plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
+        
+        plotControl.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+        plotControl.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+        plotControl.Plot.Axes.Color(ScottPlot.Color.FromHex("#000000"));
+        plotControl.Plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E0E0E0");
 
         if (_vm.ProfileData.Count > 0)
         {
@@ -155,12 +210,24 @@ public partial class PhotometricClippingToolView : Window
                 ys[i] = _vm.ProfileData[i].Value;
             }
 
-            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8")); // Viola abbinato al tasto
-            line.LineWidth = 2.0f;
+            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8")); 
+            line.LineWidth = 2.5f; 
             
-            plotControl.Plot.Axes.Title.Label.Text = "Taglio Fotometrico";
-            plotControl.Plot.Axes.Bottom.Label.Text = "Distanza (px)";
-            plotControl.Plot.Axes.Left.Label.Text = "Intensità [ADU]\n "; 
+            plotControl.Plot.Axes.Title.Label.Text = "\nTaglio Fotometrico\n";
+            plotControl.Plot.Axes.Title.Label.FontSize = 20;
+
+            plotControl.Plot.Axes.Bottom.Label.Text = "Distanza [px]";
+            plotControl.Plot.Axes.Bottom.Label.FontSize = 16;
+            plotControl.Plot.Axes.Bottom.TickLabelStyle.FontSize = 14;
+
+            plotControl.Plot.Axes.Left.Label.Text = "\nIntensità [ADU]\n"; 
+            plotControl.Plot.Axes.Left.Label.FontSize = 16;
+            plotControl.Plot.Axes.Left.TickLabelStyle.FontSize = 14;
+            plotControl.Plot.Axes.Left.MinimumSize = 80; 
+            
+            var yTickGen = new ScottPlot.TickGenerators.NumericAutomatic { TargetTickCount = 12 };
+            plotControl.Plot.Axes.Left.TickGenerator = yTickGen;
+
             plotControl.Plot.Axes.AutoScale();
         }
         plotControl.Refresh();
@@ -168,13 +235,13 @@ public partial class PhotometricClippingToolView : Window
 
     private void OnViewportPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        // Se l'anteprima è calcolata, blocca i click
-        if (_vm == null || _vm.HasCalculatedProfile || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (_vm == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
         var pos = GetFitsCoordinates(e);
         if (pos == null) return;
 
         _isDragging = true;
+        _vm.IsDragging = true; 
         
         _vm.StartX = (int)pos.Value.X;
         _vm.StartY = (int)pos.Value.Y;
@@ -186,7 +253,7 @@ public partial class PhotometricClippingToolView : Window
 
     private void OnViewportPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_isDragging || _vm == null || _vm.HasCalculatedProfile) return;
+        if (!_isDragging || _vm == null) return;
 
         var pos = GetFitsCoordinates(e);
         if (pos == null) return;
@@ -194,13 +261,17 @@ public partial class PhotometricClippingToolView : Window
         _vm.EndX = (int)pos.Value.X;
         _vm.EndY = (int)pos.Value.Y;
         
-        UpdateLineOverlay();
+        UpdateLineOverlay(); 
     }
 
     private void OnViewportPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_isDragging || _vm == null || _vm.HasCalculatedProfile) return;
+        if (!_isDragging || _vm == null) return;
+
         _isDragging = false;
+        _vm.IsDragging = false;
+        
+        _ = _vm.CalculateProfileAsync();
     }
 
     private Point? GetFitsCoordinates(PointerEventArgs e)

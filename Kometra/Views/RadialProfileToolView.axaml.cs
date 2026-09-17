@@ -128,7 +128,7 @@ public partial class RadialProfileToolView : Window
     private void UpdateBox(string name, double value)
     {
         var box = this.FindControl<NumericUpDown>(name);
-        if (box != null && !box.IsFocused)
+        if (box != null)
         {
             box.Value = (decimal)value;
             box.Text = value.ToString(CultureInfo.CurrentCulture);
@@ -146,34 +146,61 @@ public partial class RadialProfileToolView : Window
         UpdateBox("IntegrationAngleBox", _vm.IntegrationAngle);
     }
 
-    private void OnManualInputCommit(object? sender, RoutedEventArgs e)
+    private void CommitValue(NumericUpDown box, double newValue)
     {
-        if (_vm == null || sender is not NumericUpDown box) return;
+        if (_vm == null) return;
+        bool hasChanged = false;
 
-        string input = (box.Text ?? string.Empty).Replace(',', '.');
-        var culture = CultureInfo.InvariantCulture;
+        if (box.Name == "CenterXBox" && Math.Abs(_vm.CenterX - newValue) > 0.001) { _vm.CenterX = newValue; hasChanged = true; }
+        else if (box.Name == "CenterYBox" && Math.Abs(_vm.CenterY - newValue) > 0.001) { _vm.CenterY = newValue; hasChanged = true; }
+        else if (box.Name == "MaxRadiusBox" && Math.Abs(_vm.MaxRadius - newValue) > 0.001) { _vm.MaxRadius = newValue; hasChanged = true; }
+        else if (box.Name == "StepSizeBox" && Math.Abs(_vm.StepSize - newValue) > 0.001) { _vm.StepSize = newValue; hasChanged = true; }
+        else if (box.Name == "StartingAngleBox" && Math.Abs(_vm.StartingAngle - newValue) > 0.001) { _vm.StartingAngle = newValue; hasChanged = true; }
+        else if (box.Name == "IntegrationAngleBox" && Math.Abs(_vm.IntegrationAngle - newValue) > 0.001) { _vm.IntegrationAngle = newValue; hasChanged = true; }
 
-        if (box.Name == "CenterXBox" && double.TryParse(input, NumberStyles.Any, culture, out double cx))
-            _vm.CenterX = cx;
-        else if (box.Name == "CenterYBox" && double.TryParse(input, NumberStyles.Any, culture, out double cy))
-            _vm.CenterY = cy;
-        else if (box.Name == "MaxRadiusBox" && double.TryParse(input, NumberStyles.Any, culture, out double mr))
-            _vm.MaxRadius = mr;
-        else if (box.Name == "StepSizeBox" && double.TryParse(input, NumberStyles.Any, culture, out double st))
-            _vm.StepSize = st;
-        else if (box.Name == "StartingAngleBox" && double.TryParse(input, NumberStyles.Any, culture, out double sa))
-            _vm.StartingAngle = sa;
-        else if (box.Name == "IntegrationAngleBox" && double.TryParse(input, NumberStyles.Any, culture, out double ia))
-            _vm.IntegrationAngle = ia;
+        if (hasChanged)
+        {
+            _vm.TriggerCalculation();
+            UpdateCrosshairPosition();
+        }
+    }
 
+    private void OnBoxValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        if (_vm == null || sender is not NumericUpDown box || !e.NewValue.HasValue) return;
+
+        double newValue = (double)e.NewValue.Value;
+        double oldValue = e.OldValue.HasValue ? (double)e.OldValue.Value : 0;
+        double diff = Math.Abs(newValue - oldValue);
+        double increment = (double)(box.Increment > 0 ? box.Increment : 1);
+
+        // Se l'input proviene dalla tastiera, non eseguire il calcolo continuo
+        if (box.IsKeyboardFocusWithin && Math.Abs(diff - increment) > 0.0001)
+        {
+            return;
+        }
+
+        CommitValue(box, newValue);
+    }
+
+    private void OnInputLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is NumericUpDown box && box.Value.HasValue)
+        {
+            CommitValue(box, (double)box.Value.Value);
+        }
+        // Ripristina l'interfaccia senza mostrare errori in caso di testo vuoto
         UpdateUiValues();
-        UpdateCrosshairPosition();
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
+            if (sender is NumericUpDown box && box.Value.HasValue)
+            {
+                CommitValue(box, (double)box.Value.Value);
+            }
             this.Focus();
             e.Handled = true;
         }
@@ -186,11 +213,10 @@ public partial class RadialProfileToolView : Window
 
         plotControl.Plot.Clear();
 
-        plotControl.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-        plotControl.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-        
-        plotControl.Plot.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
-        plotControl.Plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
+        plotControl.Plot.FigureBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+        plotControl.Plot.DataBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+        plotControl.Plot.Axes.Color(ScottPlot.Color.FromHex("#000000"));
+        plotControl.Plot.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E0E0E0");
 
         if (_vm.ProfilePoints.Count > 0)
         {
@@ -205,9 +231,9 @@ public partial class RadialProfileToolView : Window
 
             var scatter = plotControl.Plot.Add.Scatter(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
             scatter.MarkerStyle.Size = 0;
-            scatter.LineStyle.Width = 2.0f;
+            scatter.LineStyle.Width = 2.5f; 
             
-            string yLabel = _vm.SelectedMode switch
+            string baseLabel = _vm.SelectedMode switch
             {
                 RadialProfileMode.Sum => "Total Intensity [ADU]",
                 RadialProfileMode.Median => "Median Intensity [ADU]",
@@ -215,8 +241,22 @@ public partial class RadialProfileToolView : Window
             };
 
             plotControl.Plot.Axes.Title.Label.Text = "Radial Profile";
+            plotControl.Plot.Axes.Title.Label.FontSize = 20;
+            plotControl.Plot.Axes.Title.Label.Padding = 5;
+
             plotControl.Plot.Axes.Bottom.Label.Text = "Radius [pixels]";
-            plotControl.Plot.Axes.Left.Label.Text = yLabel + "\n "; 
+            plotControl.Plot.Axes.Bottom.Label.FontSize = 16;
+            plotControl.Plot.Axes.Bottom.TickLabelStyle.FontSize = 14;
+
+            plotControl.Plot.Axes.Left.Label.Text = baseLabel; 
+            plotControl.Plot.Axes.Left.Label.FontSize = 16;
+            plotControl.Plot.Axes.Left.TickLabelStyle.FontSize = 14;
+            plotControl.Plot.Axes.Left.Label.Padding = 5; 
+            plotControl.Plot.Axes.Left.MinimumSize = 80; 
+            
+            var yTickGen = new ScottPlot.TickGenerators.NumericAutomatic { TargetTickCount = 8 };
+            plotControl.Plot.Axes.Left.TickGenerator = yTickGen;
+
             plotControl.Plot.Axes.AutoScale();
         }
 
@@ -328,8 +368,7 @@ public partial class RadialProfileToolView : Window
 
     private void OnViewportPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        // Blocca il click se il profilo è già calcolato
-        if (_vm == null || _vm.HasCalculatedProfile) return;
+        if (_vm == null) return;
 
         var containerGrid = this.FindControl<Grid>("ImageContainerGrid");
         if (containerGrid == null ||

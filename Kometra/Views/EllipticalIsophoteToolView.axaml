@@ -6,12 +6,12 @@
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:models="using:Kometra.Models.Processing.Analysis"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
-        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Kometra.Views.EllipticalIsophoteToolView"
         x:DataType="vm:EllipticalIsophoteToolViewModel"
         Title="Isofote Topologiche"
-        Width="1100" Height="700"
-        MinWidth="800" MinHeight="500"
+        Width="1280" Height="800"
+        MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
 
     <Window.DataTemplates>
@@ -24,78 +24,48 @@
 
     <Window.Styles>
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
-
-        <Style Selector="Button.calculate">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.calculate:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Opacity" Value="0.9"/>
-        </Style>
-
-        <Style Selector="NumericUpDown:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
-        </Style>
     </Window.Styles>
 
-    <Grid ColumnDefinitions="420, 4, *" RowDefinitions="*, Auto" Margin="12">
+    <Grid ColumnDefinitions="600, 4, *" RowDefinitions="*, Auto" Margin="12">
         
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
                 <TextBlock Text="ISOFOTE" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
-                <TextBlock Text="Genera veri contorni topologici sottili basati sui livelli di intensità, ignorando le geometrie fittizie." 
+                <TextBlock Text="Genera veri contorni topologici su fondo bianco. Cambia i parametri per aggiornare il grafico in tempo reale." 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <StackPanel Spacing="10" IsEnabled="{Binding CanModifyInput}">
+                    <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Minimo (ADU)" Classes="paramLabel"/>
-                                <NumericUpDown Name="MinValueBox" Value="{Binding MinValue, Mode=TwoWay}" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="MinValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Massimo (ADU)" Classes="paramLabel"/>
-                                <NumericUpDown Name="MaxValueBox" Value="{Binding MaxValue, Mode=TwoWay}" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="MaxValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Passo (Step)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StepSizeBox" Value="{Binding StepSize, Mode=TwoWay}" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,4">
                                 <CheckBox Content="Monocromatico" IsChecked="{Binding IsMonochromatic}" Foreground="#E0E0E0" FontSize="12"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
-
-                    <Button Command="{Binding CalculatePreviewCommand}" 
-                            Content="Calcola Anteprima"
-                            Classes="calculate"
-                            IsVisible="{Binding !HasCalculatedProfile}"
-                            HorizontalAlignment="Stretch" 
-                            Margin="0,4,0,0"/>
-
-                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding HasCalculatedProfile}" Margin="0,4,0,0">
-                        <!-- Bottoni standard Kometra Rosso/Verde -->
-                        <Button Grid.Column="0" Content="Annulla" Command="{Binding ResetToPreviewCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                        <Button Grid.Column="2" Content="Conferma" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                    </Grid>
                 </StackPanel>
             </Border>
 
-            <!-- L'immagine generata ora è qua, nel Tab "Immagine PNG"! -->
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
                     <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
@@ -110,7 +80,7 @@
                                 IsVisible="{Binding HasCalculatedProfile}"
                                 Background="Transparent" BorderThickness="0" Padding="0">
                         <TabItem Header="Grafico">
-                            <Border Margin="16,8,24,12" Background="Black" BorderBrush="#333333" BorderThickness="1" ClipToBounds="True" CornerRadius="4">
+                            <Border Margin="8" Background="White" BorderBrush="#333333" BorderThickness="1" ClipToBounds="True" CornerRadius="4">
                                 <Image Source="{Binding OverlayImage}" Stretch="Uniform" />
                             </Border>
                         </TabItem>
@@ -140,10 +110,17 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="3" Margin="0,12,0,0">
-                <Button Command="{Binding ExportDataCommand}" 
+            <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*, 10, *">
+                <Button Grid.Column="0" Command="{Binding ExportDataCommand}" 
                         Content="{Binding ExportButtonText}" 
                         IsEnabled="{Binding HasCalculatedProfile}"
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"/>
+                        
+                <Button Grid.Column="2" Content="Conferma Nodo" 
+                        Command="{Binding ApplyCommand}" 
+                        IsEnabled="{Binding HasCalculatedProfile}"
+                        Classes="apply" 
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
             </Grid>
@@ -157,7 +134,6 @@
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" ClipToBounds="True">
                     <ContentControl Content="{Binding PreviewRenderer}" />
 
-                    <!-- La barra in overlay, come nei tagli fotometrici -->
                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
                                 HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
                                 IsVisible="{Binding HasMultipleImages}">

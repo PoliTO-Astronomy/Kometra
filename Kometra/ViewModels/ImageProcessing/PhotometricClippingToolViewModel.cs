@@ -41,6 +41,7 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
     private readonly IWindowService _windowService;
     
     private readonly List<FitsFileReference> _sourceFiles;
+    private CancellationTokenSource? _cts;
     
     [ObservableProperty]
     private int _currentFileIndex = 0;
@@ -68,10 +69,9 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
     [ObservableProperty] private bool _isLoading;
     
     [ObservableProperty] 
-    [NotifyPropertyChangedFor(nameof(CanModifyInput))]
     private bool _hasCalculatedProfile = false;
 
-    public bool CanModifyInput => !HasCalculatedProfile;
+    public bool IsDragging { get; set; } = false;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExportButtonText))]
@@ -131,7 +131,14 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
 
                 var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
                 await renderer.InitializeAsync();
+                
+                Viewport?.Dispose();
                 Viewport = renderer; 
+                
+                if (!HasCalculatedProfile)
+                {
+                    _ = CalculateProfileAsync();
+                }
             }
         }
         catch (Exception ex)
@@ -147,7 +154,7 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
         {
             CurrentFileIndex++;
             await LoadCurrentImageAsync();
-            if (HasCalculatedProfile) await CalculateProfileAsync();
+            await CalculateProfileAsync();
         }
     }
 
@@ -158,33 +165,24 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
         {
             CurrentFileIndex--;
             await LoadCurrentImageAsync();
-            if (HasCalculatedProfile) await CalculateProfileAsync();
+            await CalculateProfileAsync();
         }
     }
 
-    partial void OnStartXChanged(int value) => OnLineChanged();
-    partial void OnStartYChanged(int value) => OnLineChanged();
-    partial void OnEndXChanged(int value) => OnLineChanged();
-    partial void OnEndYChanged(int value) => OnLineChanged();
-
-    private void OnLineChanged()
+    public async Task CalculateProfileAsync()
     {
-        // Nessuna azione immediata fino al calcolo
-    }
+        if (_sourceFiles.Count == 0) return;
 
-    [RelayCommand]
-    private async Task CalculateProfileAsync()
-    {
-        IsLoading = true;
-        StatusMessage = "Calcolo dell'anteprima in corso...";
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
 
         try
         {
-            if (_sourceFiles.Count == 0) return;
             var fileRef = _sourceFiles[CurrentFileIndex];
             var dataPackage = await _dataManager.LoadDataPackageAsync(fileRef.FilePath);
             var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-            if (hdu == null) return;
+            if (hdu == null || token.IsCancellationRequested) return;
 
             using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
             using Mat floatMat = new Mat();
@@ -216,33 +214,26 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
                 }
             }
 
+            if (token.IsCancellationRequested) return;
+
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                if (token.IsCancellationRequested) return;
+                
                 ProfileData.Clear();
                 foreach (var item in tempProfile) ProfileData.Add(item);
 
                 HasCalculatedProfile = ProfileData.Count > 0;
                 InfoDistance = $"Distanza: {points.Count} pixel";
-                InfoPeak = $"Picco Massimo Rilevato: {maxAdu:F1} ADU";
-                StatusMessage = "Anteprima calcolata. Premi Conferma per generare il nodo analitico sulla board.";
+                InfoPeak = $"Picco Massimo Rilevato: {(maxAdu == double.MinValue ? 0 : maxAdu):F1} ADU";
+                StatusMessage = "Profilo aggiornato in tempo reale.";
             });
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             StatusMessage = $"Errore calcolo: {ex.Message}";
         }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    [RelayCommand]
-    private void ResetToPreview()
-    {
-        HasCalculatedProfile = false;
-        ProfileData.Clear();
-        StatusMessage = "Modalità tracciamento sbloccata. Modifica la linea e ricalcola l'anteprima.";
     }
 
     [RelayCommand]
@@ -340,10 +331,10 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
                     await Task.Run(() => 
                     {
                         var plt = new ScottPlot.Plot();
-                        plt.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-                        plt.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-                        plt.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
-                        plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
+                        plt.FigureBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+                        plt.DataBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+                        plt.Axes.Color(ScottPlot.Color.FromHex("#000000"));
+                        plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E0E0E0");
 
                         if (localProfile.Count > 0)
                         {
@@ -351,11 +342,23 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
                             double[] ys = localProfile.Select(p => p.Val).ToArray();
 
                             var line = plt.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
-                            line.LineWidth = 2.0f;
+                            line.LineWidth = 2.5f;
                             
-                            plt.Axes.Title.Label.Text = "Taglio Fotometrico";
-                            plt.Axes.Bottom.Label.Text = "Distanza (px)";
-                            plt.Axes.Left.Label.Text = "Intensita [ADU]";
+                            plt.Axes.Title.Label.Text = "\n\nTaglio Fotometrico\n";
+                            plt.Axes.Title.Label.FontSize = 24;
+                            
+                            plt.Axes.Bottom.Label.Text = "Distanza [px]";
+                            plt.Axes.Bottom.Label.FontSize = 18;
+                            plt.Axes.Bottom.TickLabelStyle.FontSize = 14;
+                            
+                            plt.Axes.Left.Label.Text = "\n\nIntensità [ADU]\n\n";
+                            plt.Axes.Left.Label.FontSize = 18;
+                            plt.Axes.Left.TickLabelStyle.FontSize = 14;
+                            plt.Axes.Left.MinimumSize = 150;  
+
+                            var yTickGen = new ScottPlot.TickGenerators.NumericAutomatic { TargetTickCount = 12 };
+                            plt.Axes.Left.TickGenerator = yTickGen;
+
                             plt.Axes.AutoScale();
                         }
                         plt.SavePng(pngPath, 1200, 800);
@@ -401,5 +404,6 @@ public partial class PhotometricClippingToolViewModel : ObservableObject, IDispo
     public void Dispose()
     {
         Viewport?.Dispose();
+        _cts?.Dispose();
     }
 }

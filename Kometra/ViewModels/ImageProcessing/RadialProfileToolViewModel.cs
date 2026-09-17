@@ -45,7 +45,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_sourceFiles.Count}";
 
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _statusMessage = "Pronto. Sposta il centro e imposta i parametri, poi premi 'Calcola Anteprima'.";
+    [ObservableProperty] private string _statusMessage = "Pronto. Sposta il centro o modifica i parametri per aggiornare il grafico.";
 
     [ObservableProperty] private double _centerX = 0.0;
     [ObservableProperty] private double _centerY = 0.0;
@@ -55,11 +55,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _startingAngle = 0.0;     
     [ObservableProperty] private double _integrationAngle = 180.0; 
 
-    [ObservableProperty] 
-    [NotifyPropertyChangedFor(nameof(CanModifyInput))]
-    private bool _hasCalculatedProfile = false;
-
-    public bool CanModifyInput => !HasCalculatedProfile;
+    [ObservableProperty] private bool _hasProfileData = false;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExportButtonText))]
@@ -90,6 +86,13 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         Navigator.IndexChanged += OnNavigatorIndexChanged;
 
         _ = InitializeAsync();
+    }
+
+    partial void OnSelectedModeChanged(RadialProfileMode value) => _ = CalculateProfileAsync();
+
+    public void TriggerCalculation()
+    {
+        _ = CalculateProfileAsync();
     }
 
     private async void OnNavigatorIndexChanged(object? sender, int index)
@@ -144,70 +147,53 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         {
             IsLoading = false;
         }
+
+        // Il calcolo viene innescato ora che IsLoading è False, così passa il blocco di sicurezza in CalculateProfileAsync
+        if (!HasProfileData)
+        {
+            _ = CalculateProfileAsync();
+        }
     }
 
     public async Task OnImageClickedAsync(Avalonia.Point imageCoordinates)
     {
-        if (HasCalculatedProfile) return;
-
         CenterX = Math.Round(imageCoordinates.X, 1);
         CenterY = Math.Round(imageCoordinates.Y, 1);
-        
         await Task.CompletedTask; 
+        _ = CalculateProfileAsync();
     }
 
-    [RelayCommand]
-    private async Task CalculatePreviewAsync()
+    private async Task CalculateProfileAsync()
     {
-        if (_sourceFiles.Count == 0) return;
+        if (_sourceFiles.Count == 0 || _isLoading) return;
         var file = _sourceFiles[Navigator.CurrentIndex];
-
-        IsLoading = true;
-        StatusMessage = "Calcolo del profilo in corso...";
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
+        var token = _cts.Token;
 
         try
         {
-            var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
-            
+            var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), token);
+            if (token.IsCancellationRequested) return;
+
             ProfilePoints.Clear();
             foreach (var pt in points)
             {
                 ProfilePoints.Add(pt);
             }
 
-            if (ProfilePoints.Count > 0)
+            HasProfileData = ProfilePoints.Count > 0;
+            if (HasProfileData)
             {
-                HasCalculatedProfile = true; 
-                StatusMessage = "Anteprima calcolata. Premi Conferma per generare i modelli sulla board.";
-            }
-            else
-            {
-                StatusMessage = "Nessun punto calcolato, impossibile generare anteprima.";
+                StatusMessage = "Profilo aggiornato in tempo reale.";
             }
         }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "Calcolo annullato.";
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             StatusMessage = $"Errore: {ex.Message}";
         }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    [RelayCommand]
-    private void ResetToPreview()
-    {
-        HasCalculatedProfile = false;
-        ProfilePoints.Clear();
-        StatusMessage = "Modalità tracciamento sbloccata. Sposta il centro e ricalcola l'anteprima.";
     }
 
     [RelayCommand]
@@ -219,10 +205,7 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         {
             try
             {
-                string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
-                    "Esporta PNG",
-                    "radial_profile.png");
-
+                string? destinationPath = await _windowService.ShowSaveFileDialogAsync("Esporta PNG", "radial_profile.png");
                 if (string.IsNullOrWhiteSpace(destinationPath)) return;
 
                 SavePlotRequested?.Invoke(destinationPath);
@@ -237,29 +220,21 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         {
             try
             {
-                string? destinationPath = await _windowService.ShowSaveFileDialogAsync(
-                    "Esporta Profilo Radiale CSV",
-                    "radial_profile.csv");
-
+                string? destinationPath = await _windowService.ShowSaveFileDialogAsync("Esporta Profilo Radiale CSV", "radial_profile.csv");
                 if (string.IsNullOrWhiteSpace(destinationPath)) return;
 
                 var sb = new StringBuilder();
                 sb.AppendLine("Radius,Value,StandardDeviation,PixelCount");
-
                 foreach (var pt in ProfilePoints)
                 {
                     sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
                         "{0:F2},{1:F4},{2:F4},{3}",
                         pt.Radius, pt.Value, pt.StandardDeviation, pt.PixelCount));
                 }
-
                 await File.WriteAllTextAsync(destinationPath, sb.ToString(), Encoding.UTF8);
                 StatusMessage = $"Dati esportati con successo in: {Path.GetFileName(destinationPath)}";
             }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Errore esportazione CSV: {ex.Message}";
-            }
+            catch (Exception ex) { StatusMessage = $"Errore esportazione CSV: {ex.Message}"; }
         }
     }
 
@@ -277,7 +252,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
             string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "RadialProfiles");
             Directory.CreateDirectory(outputDir);
 
-            // 1. Genera il CSV globale della selezione attuale
             string baseId = Guid.NewGuid().ToString("N");
             string csvPath = Path.Combine(outputDir, $"RadialProfile_{baseId}.csv");
 
@@ -293,7 +267,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
             var pngPaths = new List<string>();
 
-            // 2. Genera i plot PNG per ogni file della sequenza FITS
             foreach (var file in _sourceFiles)
             {
                 var points = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
@@ -304,10 +277,11 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 await Task.Run(() =>
                 {
                     var plt = new ScottPlot.Plot();
-                    plt.FigureBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-                    plt.DataBackground.Color = ScottPlot.Color.FromHex("#1E1E1E");
-                    plt.Axes.Color(ScottPlot.Color.FromHex("#AAAAAA"));
-                    plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#333333");
+                    
+                    plt.FigureBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+                    plt.DataBackground.Color = ScottPlot.Color.FromHex("#FFFFFF");
+                    plt.Axes.Color(ScottPlot.Color.FromHex("#000000"));
+                    plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E0E0E0");
 
                     double[] xs = new double[points.Count];
                     double[] ys = new double[points.Count];
@@ -320,18 +294,29 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
 
                     var scatter = plt.Add.Scatter(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
                     scatter.MarkerStyle.Size = 0;
-                    scatter.LineStyle.Width = 2.0f;
+                    scatter.LineStyle.Width = 2.5f;
 
-                    string yLabel = SelectedMode switch
+                    string baseLabel = SelectedMode switch
                     {
                         RadialProfileMode.Sum => "Total Intensity [ADU]",
                         RadialProfileMode.Median => "Median Intensity [ADU]",
                         _ => "Normalized Integrated Intensity"
                     };
 
-                    plt.Axes.Title.Label.Text = "Radial Profile";
+                    plt.Axes.Title.Label.Text = "\n\nRadial Profile\n";
+                    plt.Axes.Title.Label.FontSize = 24;
+                    
                     plt.Axes.Bottom.Label.Text = "Radius [pixels]";
-                    plt.Axes.Left.Label.Text = yLabel;
+                    plt.Axes.Bottom.Label.FontSize = 18;
+                    plt.Axes.Bottom.TickLabelStyle.FontSize = 14;
+                    
+                    plt.Axes.Left.Label.Text = "\n\n" + baseLabel + "\n\n";
+                    plt.Axes.Left.Label.FontSize = 18;
+                    plt.Axes.Left.TickLabelStyle.FontSize = 14;
+
+                    var yTickGen = new ScottPlot.TickGenerators.NumericAutomatic { TargetTickCount = 8 };
+                    plt.Axes.Left.TickGenerator = yTickGen;
+                    
                     plt.Axes.AutoScale();
 
                     plt.SavePng(pngPath, 1200, 800);
@@ -340,21 +325,14 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 pngPaths.Add(pngPath);
             }
 
-            // Aggiungiamo i PNG seguiti dal CSV (stesso schema del PhotometricClipping)
             ResultPaths = pngPaths;
             ResultPaths.Add(csvPath);
 
             DialogResult = true;
             RequestClose?.Invoke();
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore durante la generazione batch: {ex.Message}";
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        catch (Exception ex) { StatusMessage = $"Errore durante la generazione batch: {ex.Message}"; }
+        finally { IsLoading = false; }
     }
 
     [RelayCommand]
@@ -363,22 +341,6 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
         _cts?.Cancel();
         DialogResult = false;
         RequestClose?.Invoke();
-    }
-
-    private static double EvaluateProfileValue(List<RadialProfileDataPoint> pts, double r)
-    {
-        if (r <= pts[0].Radius) return pts[0].Value;
-        if (r >= pts[^1].Radius) return pts[^1].Value;
-
-        for (int i = 0; i < pts.Count - 1; i++)
-        {
-            if (r >= pts[i].Radius && r <= pts[i + 1].Radius)
-            {
-                double t = (r - pts[i].Radius) / (pts[i + 1].Radius - pts[i].Radius);
-                return pts[i].Value + t * (pts[i + 1].Value - pts[i].Value);
-            }
-        }
-        return 0;
     }
 
     private async Task LoadFrameAtIndexAsync(int index)
@@ -398,16 +360,10 @@ public partial class RadialProfileToolViewModel : ObservableObject, IDisposable
                 Viewport?.Dispose();
                 Viewport = renderer;
 
-                if (HasCalculatedProfile)
-                {
-                    await CalculatePreviewAsync();
-                }
+                await CalculateProfileAsync();
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore caricamento frame {index + 1}: {ex.Message}";
-        }
+        catch (Exception ex) { StatusMessage = $"Errore caricamento frame {index + 1}: {ex.Message}"; }
     }
 
     public void Dispose()

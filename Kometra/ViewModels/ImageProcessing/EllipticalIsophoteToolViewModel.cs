@@ -45,7 +45,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_sourceFiles.Count}";
 
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _statusMessage = "Pronto. Imposta i livelli e premi 'Calcola Anteprima'.";
+    [ObservableProperty] private string _statusMessage = "Pronto. Cambia i parametri per aggiornare l'immagine in tempo reale.";
 
     [ObservableProperty] private double _minValue = 1.0;
     [ObservableProperty] private double _maxValue = 65535.0;
@@ -55,10 +55,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     [ObservableProperty] private FitsRenderer? _previewRenderer;
     
     [ObservableProperty] 
-    [NotifyPropertyChangedFor(nameof(CanModifyInput))]
     private bool _hasCalculatedProfile = false;
-
-    public bool CanModifyInput => !HasCalculatedProfile;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExportButtonText))]
@@ -68,7 +65,6 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
 
     [ObservableProperty] private Bitmap? _overlayImage;
 
-    // Cache per l'anteprima PNG composita
     private readonly Dictionary<int, (Bitmap Overlay, List<EllipticalIsophoteDataPoint> Points)> _previewCache = new();
 
     public ObservableCollection<EllipticalIsophoteDataPoint> Isophotes { get; } = new();
@@ -90,6 +86,15 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         Navigator.IndexChanged += OnNavigatorIndexChanged;
 
         _ = InitializeAsync();
+    }
+
+    // La checkbox (Monocromatico) non richiede Invio, si aggiorna istantaneamente
+    partial void OnIsMonochromaticChanged(bool value) => _ = CalculatePreviewAsync();
+
+    // Innescato dal Code-Behind
+    public void TriggerCalculation()
+    {
+        _ = CalculatePreviewAsync();
     }
 
     private async void OnNavigatorIndexChanged(object? sender, int index)
@@ -124,19 +129,18 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                 var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
                 await renderer.InitializeAsync();
                 PreviewRenderer = renderer; 
+                
+                // --- Generazione Immediata all'avvio senza attendere ---
+                _ = CalculatePreviewAsync();
             }
         }
         catch (Exception ex)
         {
             StatusMessage = $"Errore di inizializzazione: {ex.Message}";
-        }
-        finally
-        {
             IsLoading = false;
         }
     }
 
-    [RelayCommand]
     private async Task CalculatePreviewAsync()
     {
         if (_sourceFiles.Count == 0) return;
@@ -165,10 +169,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                 if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
                 else srcMat.CopyTo(floatMat);
 
-                using Mat base8Bit = new Mat();
-                Cv2.Normalize(srcMat, base8Bit, 0, 255, NormTypes.MinMax, MatType.CV_8UC1.Value);
-                using Mat compositeBgra = new Mat();
-                Cv2.CvtColor(base8Bit, compositeBgra, ColorConversionCodes.GRAY2BGRA);
+                using Mat compositeBgra = new Mat(srcMat.Rows, srcMat.Cols, MatType.CV_8UC4, new Scalar(255, 255, 255, 255));
 
                 var tempPoints = new List<EllipticalIsophoteDataPoint>();
                 var validContours = new List<(double Level, OpenCvSharp.Point[][] Contours, double Area)>();
@@ -199,7 +200,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                         ? new Scalar(232, 88, 128, 255) 
                         : GetJetColorWithAlpha(colorRatio);
                     
-                    Cv2.DrawContours(compositeBgra, item.Contours, -1, overlayColor, 1);
+                    Cv2.DrawContours(compositeBgra, item.Contours, -1, overlayColor, 2);
                     tempPoints.Add(new EllipticalIsophoteDataPoint { MeanValue = item.Level, PixelCount = (int)item.Area });
                 }
 
@@ -218,15 +219,12 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                     Isophotes.Clear();
                     foreach(var pt in tempPoints) Isophotes.Add(pt);
                     
-                    StatusMessage = "Anteprima generata. L'immagine composita si trova nel Tab. Premi Conferma per generare il nodo.";
+                    StatusMessage = "Anteprima aggiornata in tempo reale.";
                 });
 
             }, _cts.Token);
         }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "Calcolo annullato.";
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             StatusMessage = $"Errore durante il calcolo: {ex.Message}";
@@ -235,15 +233,6 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         {
             IsLoading = false;
         }
-    }
-
-    [RelayCommand]
-    private void ResetToPreview()
-    {
-        HasCalculatedProfile = false;
-        Isophotes.Clear();
-        OverlayImage = null;
-        StatusMessage = "Visualizzazione ripristinata. Modifica i parametri e ricalcola l'anteprima.";
     }
 
     [RelayCommand]
@@ -333,10 +322,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                     if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
                     else srcMat.CopyTo(floatMat);
 
-                    using Mat base8Bit = new Mat();
-                    Cv2.Normalize(srcMat, base8Bit, 0, 255, NormTypes.MinMax, MatType.CV_8UC1.Value);
-                    using Mat compositeBgra = new Mat();
-                    Cv2.CvtColor(base8Bit, compositeBgra, ColorConversionCodes.GRAY2BGRA);
+                    using Mat compositeBgra = new Mat(srcMat.Rows, srcMat.Cols, MatType.CV_8UC4, new Scalar(255, 255, 255, 255));
 
                     var validContours = new List<OpenCvSharp.Point[][]>();
 
@@ -361,7 +347,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                             ? new Scalar(232, 88, 128, 255) 
                             : GetJetColorWithAlpha(colorRatio);
                         
-                        Cv2.DrawContours(compositeBgra, validContours[i], -1, overlayColor, 1);
+                        Cv2.DrawContours(compositeBgra, validContours[i], -1, overlayColor, 2);
                     }
 
                     Dispatcher.UIThread.InvokeAsync(() =>

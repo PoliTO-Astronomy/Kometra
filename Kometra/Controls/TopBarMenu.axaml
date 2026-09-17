@@ -109,10 +109,19 @@
             
             <Separator />
 
-            <MenuItem Header="{Binding [MenuMorphAnalysis], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="innerMenuItem">
+            <!-- Sezione Grafici: raggruppa Taglio Fotometrico, Profili Radiali e Isofote -->
+            <MenuItem Header="Grafici" Classes="innerMenuItem">
                 <MenuItem.Icon>
-                    <avalonia:MaterialIcon Kind="Creation" />
+                    <avalonia:MaterialIcon Kind="ChartBoxOutline" />
                 </MenuItem.Icon>
+
+                <MenuItem Header="Taglio Fotometrico"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowPhotometricClippingWindowCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="SelectionOff" />
+                    </MenuItem.Icon>
+                </MenuItem>
 
                 <MenuItem Header="Profili Radiali"
                           Classes="innerMenuItem"
@@ -121,6 +130,20 @@
                         <avalonia:MaterialIcon Kind="ChartBellCurveCumulative" />
                     </MenuItem.Icon>
                 </MenuItem>
+
+                <MenuItem Header="Isofote"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="EllipseOutline" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
+            <MenuItem Header="{Binding [MenuMorphAnalysis], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="innerMenuItem">
+                <MenuItem.Icon>
+                    <avalonia:MaterialIcon Kind="Creation" />
+                </MenuItem.Icon>
 
                 <MenuItem Header="{Binding [MenuRadialModels], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                           Classes="innerMenuItem"
@@ -145,14 +168,6 @@
                         <avalonia:MaterialIcon Kind="ContrastBox" />
                     </MenuItem.Icon>
                 </MenuItem>
-
-                <MenuItem Header="Isofote"
-                        Classes="innerMenuItem"
-                        Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
-                    <MenuItem.Icon>
-                        <avalonia:MaterialIcon Kind="EllipseOutline" />
-                    </MenuItem.Icon>
-                </MenuItem>
             </MenuItem>
             
             <MenuItem Header="{Binding [MenuStarMask], Source={x:Static infrastructure:LocalizationManager.Instance}}"
@@ -170,16 +185,6 @@
                     <avalonia:MaterialIcon Kind="GradientVertical" />
                 </MenuItem.Icon>
             </MenuItem>
-            
-            <MenuItem Header="Taglio Fotometrico"
-                      Classes="innerMenuItem"
-                      Command="{Binding BoardVm.ShowPhotometricClippingWindowCommand}">
-                <MenuItem.Icon>
-                    <avalonia:MaterialIcon Kind="ImageFilterBlackWhite" />
-                </MenuItem.Icon>
-            </MenuItem>
-
-            
             
             <Separator />
             

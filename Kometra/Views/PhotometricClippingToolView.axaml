@@ -7,12 +7,12 @@
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
         xmlns:models="using:Kometra.ViewModels.ImageProcessing"
-        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Kometra.Views.PhotometricClippingToolView"
         x:DataType="vm:PhotometricClippingToolViewModel"
         Title="Taglio Fotometrico (Profilo Lineare)"
-        Width="1100" Height="700"
-        MinWidth="800" MinHeight="500"
+        Width="1280" Height="800"
+        MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
 
     <Window.DataTemplates>
@@ -25,74 +25,47 @@
 
     <Window.Styles>
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
-
-        <Style Selector="Button.calculate">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.calculate:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Opacity" Value="0.9"/>
-        </Style>
-
-        <Style Selector="NumericUpDown:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
-        </Style>
     </Window.Styles>
 
-    <Grid ColumnDefinitions="420, 4, *" RowDefinitions="*, Auto" Margin="12">
+    <Grid ColumnDefinitions="600, 4, *" RowDefinitions="*, Auto" Margin="12">
         
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
                 <TextBlock Text="TAGLIO FOTOMETRICO" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
-                <TextBlock Text="Clicca e trascina sull'immagine a destra per tracciare una linea di taglio ed estrarne il profilo di intensità." 
+                <TextBlock Text="Clicca e trascina sull'immagine a destra per tracciare una linea di taglio. Il grafico si aggiornerà in tempo reale." 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <StackPanel Spacing="10" IsEnabled="{Binding CanModifyInput}">
+                    <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Partenza X (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StartXBox" Value="{Binding StartX, Mode=TwoWay}" Minimum="0" Maximum="100000" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="StartXBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Partenza Y (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StartYBox" Value="{Binding StartY, Mode=TwoWay}" Minimum="0" Maximum="100000" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="StartYBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Arrivo X (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="EndXBox" Value="{Binding EndX, Mode=TwoWay}" Minimum="0" Maximum="100000" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="EndXBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Arrivo Y (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="EndYBox" Value="{Binding EndY, Mode=TwoWay}" Minimum="0" Maximum="100000" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
+                                <NumericUpDown Name="EndYBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
+                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
-
-                    <Button Command="{Binding CalculateProfileCommand}" 
-                            Content="Calcola Anteprima"
-                            Classes="calculate"
-                            IsVisible="{Binding !HasCalculatedProfile}"
-                            HorizontalAlignment="Stretch" 
-                            Margin="0,4,0,0"/>
-
-                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding HasCalculatedProfile}" Margin="0,4,0,0">
-                        <Button Grid.Column="0" Command="{Binding ResetToPreviewCommand}" Content="Annulla" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                        <Button Grid.Column="2" Command="{Binding ApplyCommand}" Content="Conferma" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                    </Grid>
 
                     <Border Background="#161616" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="10">
                         <StackPanel Spacing="4">
@@ -105,19 +78,10 @@
 
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
-                    <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
-                                HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                        <avalonia:MaterialIcon Kind="ChartBoxOutline" Width="48" Height="48" Foreground="#444444"/>
-                        <TextBlock Text="In attesa dell'anteprima..." 
-                                   Foreground="#777777" FontSize="14" FontStyle="Italic" 
-                                   HorizontalAlignment="Center"/>
-                    </StackPanel>
-
                     <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
-                                IsVisible="{Binding HasCalculatedProfile}"
                                 Background="Transparent" BorderThickness="0" Padding="0">
                         <TabItem Header="Grafico">
-                            <sp:AvaPlot Name="ProfilePlot" Margin="16,8,24,12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                            <sp:AvaPlot Name="ProfilePlot" Margin="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="Tabella">
                             <Grid RowDefinitions="Auto, *">
@@ -147,10 +111,17 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="3" Margin="0,12,0,0">
-                <Button Command="{Binding ExportDataCommand}" 
+            <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*, 10, *">
+                <Button Grid.Column="0" Command="{Binding ExportDataCommand}" 
                         Content="{Binding ExportButtonText}" 
                         IsEnabled="{Binding HasCalculatedProfile}"
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"/>
+                        
+                <Button Grid.Column="2" Content="Conferma Nodo" 
+                        Command="{Binding ApplyCommand}" 
+                        IsEnabled="{Binding HasCalculatedProfile}"
+                        Classes="apply" 
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
             </Grid>
@@ -161,7 +132,6 @@
         <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
             
             <Border Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-                <!-- Rimosso IsEnabled="{Binding CanModifyInput}" per permettere clic freccette anche dopo aver calcolato! Il disegno linea è bloccato dal Code-Behind. -->
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" 
                       PointerPressed="OnViewportPointerPressed" 
                       PointerMoved="OnViewportPointerMoved"
@@ -191,7 +161,7 @@
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                             <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
-                            <TextBlock Text="Elaborazione profilo in corso..." Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+                            <TextBlock Text="Elaborazione grafico in corso..." Foreground="White" FontSize="14" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Border>
                 </Grid>

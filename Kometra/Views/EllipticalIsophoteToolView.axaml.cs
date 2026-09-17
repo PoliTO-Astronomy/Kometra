@@ -63,7 +63,7 @@ public partial class EllipticalIsophoteToolView : Window
     private void UpdateBox(string name, double value)
     {
         var box = this.FindControl<NumericUpDown>(name);
-        if (box != null && !box.IsFocused)
+        if (box != null) 
         {
             box.Value = (decimal)value;
             box.Text = value.ToString(CultureInfo.CurrentCulture);
@@ -78,30 +78,72 @@ public partial class EllipticalIsophoteToolView : Window
         UpdateBox("StepSizeBox", _vm.StepSize);
     }
 
-    private void OnManualInputCommit(object? sender, RoutedEventArgs e)
+    private void CommitValue(NumericUpDown box, double newValue)
     {
-        if (_vm == null || sender is not NumericUpDown box) return;
+        if (_vm == null) return;
+        bool hasChanged = false;
 
-        string input = (box.Text ?? string.Empty).Replace(',', '.');
-        var culture = CultureInfo.InvariantCulture;
+        if (box.Name == "MinValueBox" && Math.Abs(_vm.MinValue - newValue) > 0.001) 
+        { 
+            _vm.MinValue = newValue; 
+            hasChanged = true; 
+        }
+        else if (box.Name == "MaxValueBox" && Math.Abs(_vm.MaxValue - newValue) > 0.001) 
+        { 
+            _vm.MaxValue = newValue; 
+            hasChanged = true; 
+        }
+        else if (box.Name == "StepSizeBox" && Math.Abs(_vm.StepSize - newValue) > 0.001) 
+        { 
+            _vm.StepSize = newValue; 
+            hasChanged = true; 
+        }
 
-        if (string.IsNullOrWhiteSpace(input) || !double.TryParse(input, NumberStyles.Any, culture, out double parsedValue))
+        if (hasChanged)
         {
-            UpdateUiValues();
+            _vm.TriggerCalculation();
+        }
+    }
+
+    private void OnBoxValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        if (_vm == null || sender is not NumericUpDown box || !e.NewValue.HasValue) return;
+
+        double newValue = (double)e.NewValue.Value;
+        double oldValue = e.OldValue.HasValue ? (double)e.OldValue.Value : 0;
+        double diff = Math.Abs(newValue - oldValue);
+
+        // Filtro intelligente: se la casella ha il focus testuale e la differenza tra vecchio e nuovo valore
+        // NON è esattamente pari all'incremento della freccetta, significa che l'utente sta digitando liberamente.
+        // In questo caso blocchiamo il calcolo immediato per evitare scatti continui.
+        if (box.IsKeyboardFocusWithin && Math.Abs(diff - (double)box.Increment) > 0.0001)
+        {
             return;
         }
 
-        if (box.Name == "MinValueBox") _vm.MinValue = parsedValue;
-        else if (box.Name == "MaxValueBox") _vm.MaxValue = parsedValue;
-        else if (box.Name == "StepSizeBox") _vm.StepSize = parsedValue;
+        CommitValue(box, newValue);
+    }
 
-        UpdateUiValues();
+    private void OnInputLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is NumericUpDown box && box.Value.HasValue)
+        {
+            CommitValue(box, (double)box.Value.Value);
+        }
+        // Ripristina l'ultimo valore valido in caso la casella fosse vuota o contenesse lettere,
+        // evitando così la comparsa di riquadri di errore nativi gialli/rossi
+        UpdateUiValues(); 
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
+            if (sender is NumericUpDown box && box.Value.HasValue)
+            {
+                CommitValue(box, (double)box.Value.Value);
+            }
+            // Togliere il focus costringe la casella a uscire dalla modalità di inserimento testo
             this.Focus();
             e.Handled = true;
         }

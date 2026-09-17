@@ -7,12 +7,12 @@
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
         xmlns:models="using:Kometra.Models.Processing.Analysis"
-        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Kometra.Views.RadialProfileToolView"
         x:DataType="vm:RadialProfileToolViewModel"
         Title="Analisi Profilo Radiale"
-        Width="1100" Height="700"
-        MinWidth="800" MinHeight="500"
+        Width="1280" Height="800"
+        MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
 
     <Window.DataTemplates>
@@ -25,114 +25,76 @@
 
     <Window.Styles>
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
-
-        <!-- Usa il colore dinamico viola per il tasto Calcola -->
-        <Style Selector="Button.calculate">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style Selector="Button.calculate:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource ActionPrimaryBackgroundBrush}"/>
-            <Setter Property="Opacity" Value="0.9"/>
-        </Style>
-
-        <Style Selector="NumericUpDown:disabled">
-            <Setter Property="Opacity" Value="0.5"/>
-        </Style>
     </Window.Styles>
 
-    <Grid ColumnDefinitions="420, 4, *" RowDefinitions="*, Auto" Margin="12">
+    <Grid ColumnDefinitions="600, 4, *" RowDefinitions="*, Auto" Margin="12">
         
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
                 <TextBlock Text="PROFILO RADIALE" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
-                <TextBlock Text="Clicca sull'immagine a destra per posizionare il centro di analisi." 
+                <TextBlock Text="Clicca sull'immagine a destra o cambia i parametri per aggiornare il grafico in tempo reale." 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <StackPanel Spacing="10" IsEnabled="{Binding CanModifyInput}">
-                        <Grid ColumnDefinitions="*, 10, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Centro X (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="CenterXBox" Value="{Binding CenterX, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Centro Y (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="CenterYBox" Value="{Binding CenterY, Mode=TwoWay}" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, 10, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Raggio Max (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="MaxRadiusBox" Value="{Binding MaxRadius, Mode=TwoWay}" Minimum="5" Maximum="2000" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Step / Bin (px)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StepSizeBox" Value="{Binding StepSize, Mode=TwoWay}" Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*, 10, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Angolo Partenza (°)" Classes="paramLabel"/>
-                                <NumericUpDown Name="StartingAngleBox" Value="{Binding StartingAngle, Mode=TwoWay}" Minimum="-360" Maximum="360" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Angolo Integraz. (°)" Classes="paramLabel"/>
-                                <NumericUpDown Name="IntegrationAngleBox" Value="{Binding IntegrationAngle, Mode=TwoWay}" Minimum="1" Maximum="180" Increment="5" FormatString="F0" LostFocus="OnManualInputCommit" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <StackPanel>
-                            <TextBlock Text="Metrica Statistica per Anello" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
-                            <ComboBox SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch">
-                                <models:RadialProfileMode>Mean</models:RadialProfileMode>
-                                <models:RadialProfileMode>Median</models:RadialProfileMode>
-                                <models:RadialProfileMode>Sum</models:RadialProfileMode>
-                            </ComboBox>
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Centro X (px)" Classes="paramLabel"/>
+                            <NumericUpDown Name="CenterXBox" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
-                    </StackPanel>
-
-                    <Button Command="{Binding CalculatePreviewCommand}" 
-                            Content="Calcola Anteprima"
-                            Classes="calculate"
-                            IsVisible="{Binding !HasCalculatedProfile}"
-                            HorizontalAlignment="Stretch" 
-                            Margin="0,4,0,0"/>
-
-                    <Grid ColumnDefinitions="*, 10, *" IsVisible="{Binding HasCalculatedProfile}" Margin="0,4,0,0">
-                        <!-- Usa le classi globali cancel (Rosso) e apply (Verde) -->
-                        <Button Grid.Column="0" Content="Annulla" Command="{Binding ResetToPreviewCommand}" Classes="cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                        <Button Grid.Column="2" Content="Conferma" Command="{Binding ApplyCommand}" Classes="apply" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Centro Y (px)" Classes="paramLabel"/>
+                            <NumericUpDown Name="CenterYBox" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
                     </Grid>
+
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Raggio Max (px)" Classes="paramLabel"/>
+                            <NumericUpDown Name="MaxRadiusBox" Minimum="5" Maximum="2000" Increment="5" FormatString="F0" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Step / Bin (px)" Classes="paramLabel"/>
+                            <NumericUpDown Name="StepSizeBox" Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Angolo Partenza (°)" Classes="paramLabel"/>
+                            <NumericUpDown Name="StartingAngleBox" Minimum="-360" Maximum="360" Increment="5" FormatString="F0" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Angolo Integraz. (°)" Classes="paramLabel"/>
+                            <NumericUpDown Name="IntegrationAngleBox" Minimum="1" Maximum="180" Increment="5" FormatString="F0" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel>
+                        <TextBlock Text="Metrica Statistica per Anello" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
+                        <ComboBox SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch">
+                            <models:RadialProfileMode>Mean</models:RadialProfileMode>
+                            <models:RadialProfileMode>Median</models:RadialProfileMode>
+                            <models:RadialProfileMode>Sum</models:RadialProfileMode>
+                        </ComboBox>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
-                    <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
-                                HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                        <avalonia:MaterialIcon Kind="ChartBoxOutline" Width="48" Height="48" Foreground="#444444"/>
-                        <TextBlock Text="In attesa dell'anteprima..." 
-                                   Foreground="#777777" FontSize="14" FontStyle="Italic" 
-                                   HorizontalAlignment="Center"/>
-                    </StackPanel>
-
                     <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
-                                IsVisible="{Binding HasCalculatedProfile}"
                                 Background="Transparent" BorderThickness="0" Padding="0">
                         <TabItem Header="Grafico">
-                            <sp:AvaPlot Name="ProfilePlot" Margin="16,8,24,12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                            <sp:AvaPlot Name="ProfilePlot" Margin="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                         </TabItem>
                         <TabItem Header="Tabella">
                             <Grid RowDefinitions="Auto, *">
@@ -164,10 +126,17 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="3" Margin="0,12,0,0">
-                <Button Command="{Binding ExportDataCommand}" 
+            <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*, 10, *">
+                <Button Grid.Column="0" Command="{Binding ExportDataCommand}" 
                         Content="{Binding ExportButtonText}" 
-                        IsEnabled="{Binding HasCalculatedProfile}"
+                        IsEnabled="{Binding HasProfileData}"
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"/>
+                        
+                <Button Grid.Column="2" Content="Conferma Nodo" 
+                        Command="{Binding ApplyCommand}" 
+                        IsEnabled="{Binding HasProfileData}"
+                        Classes="apply" 
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
             </Grid>
