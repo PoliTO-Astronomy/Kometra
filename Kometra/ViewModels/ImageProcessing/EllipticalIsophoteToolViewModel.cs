@@ -3,24 +3,24 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kometra.Models.Fits;
-using Kometra.Models.Fits.Structure;
 using Kometra.Models.Processing.Analysis;
 using Kometra.Services.Fits;
 using Kometra.Services.Processing.Coordinators;
 using Kometra.Services.Factories;
 using Kometra.ViewModels.Visualization;
 using Kometra.Services.UI;
+using Kometra.Infrastructure;
 using OpenCvSharp;
 using SequenceNavigator = Kometra.ViewModels.Shared.SequenceNavigator;
 
@@ -45,7 +45,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_sourceFiles.Count}";
 
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _statusMessage = "Pronto. Cambia i parametri per aggiornare l'immagine in tempo reale.";
+    [ObservableProperty] private string _statusMessage = "...";
 
     [ObservableProperty] private double _minValue = 1.0;
     [ObservableProperty] private double _maxValue = 65535.0;
@@ -53,20 +53,17 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     [ObservableProperty] private bool _isMonochromatic = false;
 
     [ObservableProperty] private FitsRenderer? _previewRenderer;
-    
-    [ObservableProperty] 
-    private bool _hasCalculatedProfile = false;
+    [ObservableProperty] private bool _hasCalculatedProfile = false;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExportButtonText))]
     private int _selectedTabIndex = 0;
 
-    public string ExportButtonText => SelectedTabIndex == 0 ? "Esporta PNG" : "Esporta CSV";
+    public string ExportButtonText => $"{LocalizationManager.Instance["ExportExecute"]} {(SelectedTabIndex == 0 ? "PNG" : "CSV")}";
 
     [ObservableProperty] private Bitmap? _overlayImage;
 
     private readonly Dictionary<int, (Bitmap Overlay, List<EllipticalIsophoteDataPoint> Points)> _previewCache = new();
-
     public ObservableCollection<EllipticalIsophoteDataPoint> Isophotes { get; } = new();
 
     public EllipticalIsophoteToolViewModel(
@@ -82,26 +79,44 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         _rendererFactory = rendererFactory ?? throw new ArgumentNullException(nameof(rendererFactory));
         _windowService = windowService ?? throw new ArgumentNullException(nameof(windowService));
 
+        StatusMessage = LocalizationManager.Instance["StatusReady"] ?? "Ready.";
+
         Navigator.UpdateStatus(0, _sourceFiles.Count);
         Navigator.IndexChanged += OnNavigatorIndexChanged;
 
         _ = InitializeAsync();
     }
 
-    // La checkbox (Monocromatico) non richiede Invio, si aggiorna istantaneamente
+    private string GetSelectionColorHex()
+    {
+        if (Application.Current != null)
+        {
+            if (Application.Current.TryGetResource("SelectionColor", out var res) || 
+                Application.Current.TryGetResource("SystemAccentColor", out res))
+            {
+                if (res is Avalonia.Media.Color c) return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+                if (res is Avalonia.Media.SolidColorBrush b) return $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}";
+            }
+        }
+        return "#8058E8";
+    }
+
     partial void OnIsMonochromaticChanged(bool value) => _ = CalculatePreviewAsync();
 
-    // Innescato dal Code-Behind
-    public void TriggerCalculation()
-    {
-        _ = CalculatePreviewAsync();
-    }
+    public void TriggerCalculation() => _ = CalculatePreviewAsync();
 
     private async void OnNavigatorIndexChanged(object? sender, int index)
     {
         OnPropertyChanged(nameof(CurrentImageText));
         await LoadFrameAtIndexAsync(index);
     }
+
+    private EllipticalIsophoteParameters GetCurrentParameters() => new()
+    {
+        MinValue = MinValue, MaxValue = MaxValue, StepSize = StepSize, 
+        IsMonochromatic = IsMonochromatic,
+        MonoColorHex = GetSelectionColorHex()
+    };
 
     private async Task InitializeAsync()
     {
@@ -130,15 +145,14 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                 await renderer.InitializeAsync();
                 PreviewRenderer = renderer; 
                 
-                // --- Generazione Immediata all'avvio senza attendere ---
                 _ = CalculatePreviewAsync();
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore di inizializzazione: {ex.Message}";
-            IsLoading = false;
+        catch (Exception ex) 
+        { 
+            StatusMessage = string.Format(LocalizationManager.Instance["ErrorInit"] ?? "Error: {0}", ex.Message); 
         }
+        finally { IsLoading = false; }
     }
 
     private async Task CalculatePreviewAsync()
@@ -146,93 +160,40 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         if (_sourceFiles.Count == 0) return;
 
         IsLoading = true;
-        StatusMessage = "Estrazione dei contorni topologici in corso...";
+        StatusMessage = LocalizationManager.Instance["StatusAnalyzing"] ?? "Analyzing...";
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
-
         _previewCache.Clear();
 
         try
         {
-            await Task.Run(async () =>
+            int frameIdx = Navigator.CurrentIndex;
+            var file = _sourceFiles[frameIdx];
+
+            using var result = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
+            if (_cts.Token.IsCancellationRequested || result.OverlayImage == null) return;
+
+            var bmpOverlay = CreateAvaloniaBitmap(result.OverlayImage);
+            var pts = new List<EllipticalIsophoteDataPoint>(result.Isophotes);
+
+            lock (_previewCache) { _previewCache[frameIdx] = (bmpOverlay, pts); }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                int frameIdx = Navigator.CurrentIndex;
-                var file = _sourceFiles[frameIdx];
-
-                var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
-                var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-                if (hdu == null) return;
-
-                using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                using Mat floatMat = new Mat();
-                if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
-                else srcMat.CopyTo(floatMat);
-
-                using Mat compositeBgra = new Mat(srcMat.Rows, srcMat.Cols, MatType.CV_8UC4, new Scalar(255, 255, 255, 255));
-
-                var tempPoints = new List<EllipticalIsophoteDataPoint>();
-                var validContours = new List<(double Level, OpenCvSharp.Point[][] Contours, double Area)>();
-
-                for (double level = MinValue; level <= MaxValue; level += StepSize)
-                {
-                    using Mat mask = new Mat();
-                    Cv2.Threshold(floatMat, mask, level, 255, ThresholdTypes.Binary);
-                    mask.ConvertTo(mask, MatType.CV_8UC1);
-
-                    Cv2.FindContours(mask, out OpenCvSharp.Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxNone);
-
-                    if (contours.Length > 0)
-                    {
-                        double area = contours.Sum(c => Cv2.ContourArea(c));
-                        validContours.Add((level, contours, area));
-                    }
-                }
-
-                int totalContours = validContours.Count;
-
-                for (int i = 0; i < totalContours; i++)
-                {
-                    var item = validContours[i];
-                    double colorRatio = totalContours > 1 ? (double)i / (totalContours - 1) : 1.0;
-                    
-                    Scalar overlayColor = IsMonochromatic 
-                        ? new Scalar(232, 88, 128, 255) 
-                        : GetJetColorWithAlpha(colorRatio);
-                    
-                    Cv2.DrawContours(compositeBgra, item.Contours, -1, overlayColor, 2);
-                    tempPoints.Add(new EllipticalIsophoteDataPoint { MeanValue = item.Level, PixelCount = (int)item.Area });
-                }
-
-                var bmpOverlay = CreateAvaloniaBitmap(compositeBgra);
-
-                lock (_previewCache)
-                {
-                    _previewCache[frameIdx] = (bmpOverlay, tempPoints);
-                }
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    HasCalculatedProfile = true;
-                    OverlayImage = bmpOverlay;
-                    
-                    Isophotes.Clear();
-                    foreach(var pt in tempPoints) Isophotes.Add(pt);
-                    
-                    StatusMessage = "Anteprima aggiornata in tempo reale.";
-                });
-
-            }, _cts.Token);
+                HasCalculatedProfile = true;
+                OverlayImage = bmpOverlay;
+                Isophotes.Clear();
+                foreach(var pt in pts) Isophotes.Add(pt);
+                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Done.";
+            });
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore durante il calcolo: {ex.Message}";
+        catch (Exception ex) 
+        { 
+            StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        finally { IsLoading = false; }
     }
 
     [RelayCommand]
@@ -245,36 +206,35 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
             try
             {
                 if (OverlayImage == null) return;
-                string? destPath = await _windowService.ShowSaveFileDialogAsync("Esporta PNG", "isophotes_overlay.png");
+                string? destPath = await _windowService.ShowSaveFileDialogAsync("PNG", "isophotes_overlay.png");
                 if (string.IsNullOrWhiteSpace(destPath)) return;
 
                 OverlayImage.Save(destPath);
-                StatusMessage = $"Immagine salvata con successo in: {Path.GetFileName(destPath)}";
+                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Export completed.";
             }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Errore esportazione PNG: {ex.Message}";
+            catch (Exception ex) 
+            { 
+                StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
             }
         }
         else 
         {
             try
             {
-                string? destPath = await _windowService.ShowSaveFileDialogAsync("Esporta Dati Isofote CSV", "isophotes_data.csv");
+                string? destPath = await _windowService.ShowSaveFileDialogAsync("CSV", "isophotes_data.csv");
                 if (string.IsNullOrWhiteSpace(destPath)) return;
 
                 var sb = new StringBuilder();
                 sb.AppendLine("Livello (ADU),Area (px)");
                 foreach (var pt in Isophotes)
-                {
                     sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:F2},{1}", pt.MeanValue, pt.PixelCount));
-                }
+                
                 await File.WriteAllTextAsync(destPath, sb.ToString(), Encoding.UTF8);
-                StatusMessage = $"CSV salvato con successo in: {Path.GetFileName(destPath)}";
+                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Export completed.";
             }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Errore esportazione CSV: {ex.Message}";
+            catch (Exception ex) 
+            { 
+                StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
             }
         }
     }
@@ -283,8 +243,7 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     private async Task ApplyAsync()
     {
         IsLoading = true;
-        StatusMessage = "Generazione dei file immagine compositi per l'intera sequenza...";
-
+        StatusMessage = LocalizationManager.Instance["StatusProcessing"] ?? "Processing...";
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
@@ -299,64 +258,25 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
             var sb = new StringBuilder();
             sb.AppendLine("Livello (ADU),Area (px)");
             foreach (var pt in Isophotes)
-            {
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:F2},{1}", pt.MeanValue, pt.PixelCount));
-            }
             await File.WriteAllTextAsync(csvPath, sb.ToString(), Encoding.UTF8);
 
             var pngPaths = new List<string>();
+            var parameters = GetCurrentParameters();
 
             for (int frameIdx = 0; frameIdx < _sourceFiles.Count; frameIdx++)
             {
                 var file = _sourceFiles[frameIdx];
                 string pngPath = Path.Combine(outputDir, $"Isophotes_{frameIdx}_{Guid.NewGuid():N}.png");
 
-                await Task.Run(() =>
+                using var result = await _coordinator.AnalyzeProfileAsync(file, parameters, _cts.Token);
+                if (result.OverlayImage == null) continue;
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    var dataPackage = _dataManager.LoadDataPackageAsync(file.FilePath).GetAwaiter().GetResult();
-                    var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-                    if (hdu == null) return;
-
-                    using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                    using Mat floatMat = new Mat();
-                    if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
-                    else srcMat.CopyTo(floatMat);
-
-                    using Mat compositeBgra = new Mat(srcMat.Rows, srcMat.Cols, MatType.CV_8UC4, new Scalar(255, 255, 255, 255));
-
-                    var validContours = new List<OpenCvSharp.Point[][]>();
-
-                    for (double level = MinValue; level <= MaxValue; level += StepSize)
-                    {
-                        using Mat mask = new Mat();
-                        Cv2.Threshold(floatMat, mask, level, 255, ThresholdTypes.Binary);
-                        mask.ConvertTo(mask, MatType.CV_8UC1);
-                        Cv2.FindContours(mask, out OpenCvSharp.Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxNone);
-
-                        if (contours.Length > 0)
-                        {
-                            validContours.Add(contours);
-                        }
-                    }
-
-                    int totalContours = validContours.Count;
-                    for (int i = 0; i < totalContours; i++)
-                    {
-                        double colorRatio = totalContours > 1 ? (double)i / (totalContours - 1) : 1.0;
-                        Scalar overlayColor = IsMonochromatic 
-                            ? new Scalar(232, 88, 128, 255) 
-                            : GetJetColorWithAlpha(colorRatio);
-                        
-                        Cv2.DrawContours(compositeBgra, validContours[i], -1, overlayColor, 2);
-                    }
-
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        using var bmp = CreateAvaloniaBitmap(compositeBgra);
-                        bmp.Save(pngPath);
-                    }).GetAwaiter().GetResult();
-
-                }, _cts.Token);
+                    using var bmp = CreateAvaloniaBitmap(result.OverlayImage);
+                    bmp.Save(pngPath);
+                });
 
                 if (File.Exists(pngPath)) pngPaths.Add(pngPath);
             }
@@ -367,14 +287,11 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
             DialogResult = true;
             RequestClose?.Invoke();
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore durante la generazione batch: {ex.Message}";
+        catch (Exception ex) 
+        { 
+            StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
         }
-        finally
-        {
-            IsLoading = false;
-        }
+        finally { IsLoading = false; }
     }
 
     [RelayCommand]
@@ -413,27 +330,14 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
                         Isophotes.Clear();
                         foreach (var pt in cacheItem.Points) Isophotes.Add(pt);
                     }
-                    else
-                    {
-                        _ = CalculatePreviewAsync(); 
-                    }
+                    else _ = CalculatePreviewAsync(); 
                 }
             }
         }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Errore caricamento frame {index + 1}: {ex.Message}";
+        catch (Exception ex) 
+        { 
+            StatusMessage = string.Format(LocalizationManager.Instance["ErrorInit"] ?? "Error: {0}", ex.Message); 
         }
-    }
-
-    private Scalar GetJetColorWithAlpha(double ratio)
-    {
-        byte val = (byte)Math.Clamp(ratio * 255.0, 0, 255);
-        using var mat1x1 = new Mat(1, 1, MatType.CV_8UC1, new Scalar(val));
-        using var color1x1 = new Mat();
-        Cv2.ApplyColorMap(mat1x1, color1x1, ColormapTypes.Jet);
-        var vec = color1x1.Get<Vec3b>(0, 0);
-        return new Scalar(vec.Item0, vec.Item1, vec.Item2, 255);
     }
 
     private Bitmap CreateAvaloniaBitmap(Mat bgraMat)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Kometra.Models.Fits;
@@ -9,18 +10,18 @@ using OpenCvSharp;
 
 namespace Kometra.Services.Processing.Coordinators;
 
-public class EllipticalIsophoteCoordinator : IEllipticalIsophoteCoordinator
+public class PhotometricProfileCoordinator : IPhotometricProfileCoordinator
 {
     private readonly IFitsDataManager _dataManager;
-    private readonly IEllipticalIsophoteEngine _engine;
+    private readonly IPhotometricProfileEngine _engine;
 
-    public EllipticalIsophoteCoordinator(IFitsDataManager dataManager, IEllipticalIsophoteEngine engine)
+    public PhotometricProfileCoordinator(IFitsDataManager dataManager, IPhotometricProfileEngine engine)
     {
         _dataManager = dataManager ?? throw new ArgumentNullException(nameof(dataManager));
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
     }
 
-    public async Task<IsophoteAnalysisResult> AnalyzeProfileAsync(FitsFileReference file, EllipticalIsophoteParameters parameters, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PhotometricDataPoint>> AnalyzeProfileAsync(FitsFileReference file, PhotometricCutParameters parameters, CancellationToken cancellationToken = default)
     {
         return await Task.Run(async () =>
         {
@@ -28,7 +29,7 @@ public class EllipticalIsophoteCoordinator : IEllipticalIsophoteCoordinator
 
             var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
             var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-            if (hdu == null) return new IsophoteAnalysisResult();
+            if (hdu == null) return Array.Empty<PhotometricDataPoint>();
 
             using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
             using Mat floatMat = new Mat();
@@ -36,8 +37,8 @@ public class EllipticalIsophoteCoordinator : IEllipticalIsophoteCoordinator
             else srcMat.CopyTo(floatMat);
 
             cancellationToken.ThrowIfCancellationRequested();
-            return _engine.CalculateIsophotes(floatMat, parameters);
-
+            return _engine.CalculateProfile(floatMat, parameters);
+            
         }, cancellationToken);
     }
 }

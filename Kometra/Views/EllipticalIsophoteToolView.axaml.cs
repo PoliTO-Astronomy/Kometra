@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kometra.ViewModels.ImageProcessing;
+using Kometra.Infrastructure;
 
 namespace Kometra.Views;
 
@@ -113,9 +114,6 @@ public partial class EllipticalIsophoteToolView : Window
         double oldValue = e.OldValue.HasValue ? (double)e.OldValue.Value : 0;
         double diff = Math.Abs(newValue - oldValue);
 
-        // Filtro intelligente: se la casella ha il focus testuale e la differenza tra vecchio e nuovo valore
-        // NON è esattamente pari all'incremento della freccetta, significa che l'utente sta digitando liberamente.
-        // In questo caso blocchiamo il calcolo immediato per evitare scatti continui.
         if (box.IsKeyboardFocusWithin && Math.Abs(diff - (double)box.Increment) > 0.0001)
         {
             return;
@@ -130,8 +128,6 @@ public partial class EllipticalIsophoteToolView : Window
         {
             CommitValue(box, (double)box.Value.Value);
         }
-        // Ripristina l'ultimo valore valido in caso la casella fosse vuota o contenesse lettere,
-        // evitando così la comparsa di riquadri di errore nativi gialli/rossi
         UpdateUiValues(); 
     }
 
@@ -143,7 +139,6 @@ public partial class EllipticalIsophoteToolView : Window
             {
                 CommitValue(box, (double)box.Value.Value);
             }
-            // Togliere il focus costringe la casella a uscire dalla modalità di inserimento testo
             this.Focus();
             e.Handled = true;
         }

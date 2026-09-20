@@ -622,4 +622,40 @@
     <data name="StatusReady" xml:space="preserve"><value>Pronto.</value></data>
     <data name="StatusCancelled" xml:space="preserve"><value>Operazione annullata.</value></data>
     <data name="VideoExportStatusCancelling" xml:space="preserve"><value>Annullamento esportazione in corso...</value></data>
+
+    <data name="MenuGraphs" xml:space="preserve"><value>Grafici</value></data>
+    <data name="MenuPhotometricProfile" xml:space="preserve"><value>Taglio Fotometrico</value></data>
+    <data name="MenuRadialProfiles" xml:space="preserve"><value>Profili Radiali</value></data>
+    <data name="MenuIsophotes" xml:space="preserve"><value>Isofote</value></data>
+    <data name="TitleRadialProfile" xml:space="preserve"><value>PROFILO RADIALE</value></data>
+    <data name="DescRadialProfile" xml:space="preserve"><value>Clicca sull'immagine a destra o cambia i parametri per aggiornare il grafico in tempo reale.</value></data>
+    <data name="TitlePhotometric" xml:space="preserve"><value>TAGLIO FOTOMETRICO</value></data>
+    <data name="DescPhotometric" xml:space="preserve"><value>Clicca e trascina sull'immagine a destra per tracciare una linea di taglio. Il grafico si aggiornerà in tempo reale.</value></data>
+    <data name="TitleIsophotes" xml:space="preserve"><value>ISOFOTE</value></data>
+    <data name="DescIsophotes" xml:space="preserve"><value>Genera veri contorni topologici su fondo bianco. Cambia i parametri per aggiornare il grafico in tempo reale.</value></data>
+    <data name="ParamStartX" xml:space="preserve"><value>Partenza X (px)</value></data>
+    <data name="ParamStartY" xml:space="preserve"><value>Partenza Y (px)</value></data>
+    <data name="ParamEndX" xml:space="preserve"><value>Arrivo X (px)</value></data>
+    <data name="ParamEndY" xml:space="preserve"><value>Arrivo Y (px)</value></data>
+    <data name="ParamCenterX" xml:space="preserve"><value>Centro X (px)</value></data>
+    <data name="ParamCenterY" xml:space="preserve"><value>Centro Y (px)</value></data>
+    <data name="ParamMaxRadius" xml:space="preserve"><value>Raggio Max (px)</value></data>
+    <data name="ParamStepBin" xml:space="preserve"><value>Step / Bin (px)</value></data>
+    <data name="ParamStartAngle" xml:space="preserve"><value>Angolo Partenza (°)</value></data>
+    <data name="ParamIntAngle" xml:space="preserve"><value>Angolo Integrazione (°)</value></data>
+    <data name="ParamStatMetric" xml:space="preserve"><value>Metrica Statistica per Anello</value></data>
+    <data name="ParamMinAdu" xml:space="preserve"><value>Minimo (ADU)</value></data>
+    <data name="ParamMaxAdu" xml:space="preserve"><value>Massimo (ADU)</value></data>
+    <data name="ParamMonochromatic" xml:space="preserve"><value>Monocromatico</value></data>
+    <data name="TabGraph" xml:space="preserve"><value>Grafico</value></data>
+    <data name="TabTable" xml:space="preserve"><value>Tabella</value></data>
+    <data name="ColDistance" xml:space="preserve"><value>Distanza (px)</value></data>
+    <data name="ColIntensity" xml:space="preserve"><value>Intensità (ADU)</value></data>
+    <data name="ColRadius" xml:space="preserve"><value>Raggio</value></data>
+    <data name="ColValue" xml:space="preserve"><value>Valore</value></data>
+    <data name="ColStdDev" xml:space="preserve"><value>Dev. Std</value></data>
+    <data name="ColPixelCount" xml:space="preserve"><value>Pixel #</value></data>
+    <data name="ColIsoLevel" xml:space="preserve"><value>Livello Isofota (ADU)</value></data>
+    <data name="ColArea" xml:space="preserve"><value>Area Racchiusa (px²)</value></data>
+    <data name="BtnConfirmNode" xml:space="preserve"><value>Conferma Nodo</value></data>
 </root>

@@ -200,7 +200,7 @@ public partial class BoardViewModel : ObservableObject
         ShowLocalContrastWindowCommand.NotifyCanExecuteChanged();
         ShowStarMaskingWindowCommand.NotifyCanExecuteChanged();
         ShowCropWindowCommand.NotifyCanExecuteChanged();
-        ShowPhotometricClippingWindowCommand.NotifyCanExecuteChanged();
+        ShowPhotometricProfileWindowCommand.NotifyCanExecuteChanged();
         ShowRadialProfileToolCommand.NotifyCanExecuteChanged();
         ShowEllipticalIsophotesWindowCommand.NotifyCanExecuteChanged();
         
@@ -312,7 +312,7 @@ public partial class BoardViewModel : ObservableObject
     // ---------------------------------------------------------------------------
 
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
-    private async Task ShowPhotometricClippingWindow()
+    private async Task ShowPhotometricProfileWindow()
     {
         var imgNode = SelectedImageNode;
         if (imgNode == null) return;
@@ -321,13 +321,13 @@ public partial class BoardViewModel : ObservableObject
 
         try 
         {
-            var resultPaths = await _windowService.ShowPhotometricClippingWindowAsync(inputFiles, imgNode.VisualizationMode);
+            var resultPaths = await _windowService.ShowPhotometricProfileWindowAsync(inputFiles, imgNode.VisualizationMode);
             
             if (resultPaths != null && resultPaths.Count >= 2)
             {
                 var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
                 string csvPath = resultPaths.Last();
-                string title = $"{imgNode.Title} (Photometric Clipping)";
+                string title = $"{imgNode.Title} (Photometric Profile)";
 
                 // Calcolo dedicato per il nodo grafico senza toccare i nodi standard
                 double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
@@ -336,7 +336,7 @@ public partial class BoardViewModel : ObservableObject
 
                 var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
 
-                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Photometric Clipping");
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Photometric Profile");
             }
         }
         catch (Exception ex) { Debug.WriteLine($"ERRORE: {ex.Message}"); }

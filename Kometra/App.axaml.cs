@@ -104,7 +104,7 @@ public class App : Application
         services.AddSingleton<IStructureShapeEngine, StructureShapeEngine>();
         services.AddSingleton<ISegmentationEngine, SegmentationEngine>();
         services.AddSingleton<IInpaintingEngine, InpaintingEngine>();
-        services.AddSingleton<IPhotometryEngine, PhotometryEngine>();
+        services.AddSingleton<IPhotometricProfileEngine, PhotometricProfileEngine>();
         services.AddSingleton<IRadialProfileEngine, RadialProfileEngine>();
         services.AddSingleton<IEllipticalIsophoteEngine, EllipticalIsophoteEngine>();
         
@@ -133,7 +133,7 @@ public class App : Application
         services.AddSingleton<IVideoExportCoordinator, VideoExportCoordinator>();
         services.AddSingleton<IExportCoordinator, ExportCoordinator>();
         services.AddSingleton<INodeStructureCoordinator, NodeStructureCoordinator>(); 
-        services.AddSingleton<IPhotometryCoordinator, PhotometryCoordinator>();
+        services.AddSingleton<IPhotometricProfileCoordinator, PhotometricProfileCoordinator>();
         services.AddSingleton<IRadialProfileCoordinator, RadialProfileCoordinator>();
         services.AddSingleton<IEllipticalIsophoteCoordinator, EllipticalIsophoteCoordinator>();
         

@@ -135,7 +135,6 @@ public class AlignmentCoordinator : IAlignmentCoordinator
         var fileList = files.ToList();
         var guessList = guesses.ToList();
 
-        // 1. Discovery automatica se mancano dati manuali
         if (guessList.Any(g => g == null) && !string.IsNullOrEmpty(jplTargetName))
         {
             var discoveredPoints = await DiscoverStartingPointsAsync(fileList, target, jplTargetName);
@@ -149,14 +148,9 @@ public class AlignmentCoordinator : IAlignmentCoordinator
             }
         }
 
-        // 2. Calcolo Scientifico dei Centri
         var centers = await _alignmentService.CalculateCentersAsync(
             target, mode, method, fileList, guessList, searchRadius, progress, token);
 
-        // 3. Generazione Mappa di Analisi
-        // NOTA: Passiamo cropToCommonArea: false perché in fase di analisi (preview) 
-        // vogliamo solitamente vedere tutto il contesto o non ci importa del crop finale.
-        // Il crop vero e proprio viene deciso in ExecuteWarpingAsync.
         return await _alignmentService.GenerateMapAsync(
             fileList, 
             centers.ToList(), 
@@ -170,7 +164,7 @@ public class AlignmentCoordinator : IAlignmentCoordinator
         AlignmentMode mode,
         int searchRadius,
         string? jplName, 
-        bool cropToCommonArea, // <--- PARAMETRO NUOVO
+        bool cropToCommonArea, 
         IProgress<BatchProgressReport>? progress = null,
         CancellationToken token = default)
     {
@@ -178,16 +172,12 @@ public class AlignmentCoordinator : IAlignmentCoordinator
 
         var fileList = files.ToList();
 
-        // 1. RIGENERAZIONE MAPPA GEOMETRICA
-        // La mappa in ingresso contiene i centri corretti, ma potrebbe avere una geometria "Union" di default.
-        // Qui forziamo il ricalcolo della geometria (Size2D e Shift) in base alla scelta dell'utente (checkbox).
         var finalMap = await _alignmentService.GenerateMapAsync(
             fileList, 
             map.Centers.ToList(), 
             map.Target, 
-            cropToCommonArea); // Usa la scelta UI
+            cropToCommonArea); 
 
-        // 2. Preparazione Logging
         string refInfo = "WCS";
         if (finalMap.Target == AlignmentTarget.Comet)
         {
@@ -201,9 +191,7 @@ public class AlignmentCoordinator : IAlignmentCoordinator
             );
         };
 
-        // 3. Ottenimento Processore e Esecuzione Batch
         var warpProcessor = _alignmentService.GetWarpingProcessor(finalMap, logStrategy);
-
         return await _batchService.ProcessFilesAsync(fileList, "Aligned", warpProcessor, progress, token);
     }
 

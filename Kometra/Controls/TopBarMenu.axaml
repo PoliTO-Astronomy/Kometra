@@ -109,21 +109,21 @@
             
             <Separator />
 
-            <!-- Sezione Grafici: raggruppa Taglio Fotometrico, Profili Radiali e Isofote -->
-            <MenuItem Header="Grafici" Classes="innerMenuItem">
+            <!-- SEZIONE GRAFICI LOCALIZZATA -->
+            <MenuItem Header="{Binding [MenuGraphs], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="innerMenuItem">
                 <MenuItem.Icon>
                     <avalonia:MaterialIcon Kind="ChartBoxOutline" />
                 </MenuItem.Icon>
 
-                <MenuItem Header="Taglio Fotometrico"
+                <MenuItem Header="{Binding [MenuPhotometricProfile], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                           Classes="innerMenuItem"
-                          Command="{Binding BoardVm.ShowPhotometricClippingWindowCommand}">
+                          Command="{Binding BoardVm.ShowPhotometricProfileWindowCommand}">
                     <MenuItem.Icon>
                         <avalonia:MaterialIcon Kind="SelectionOff" />
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <MenuItem Header="Profili Radiali"
+                <MenuItem Header="{Binding [MenuRadialProfiles], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                           Classes="innerMenuItem"
                           Command="{Binding BoardVm.ShowRadialProfileToolCommand}">
                     <MenuItem.Icon>
@@ -131,7 +131,7 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <MenuItem Header="Isofote"
+                <MenuItem Header="{Binding [MenuIsophotes], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                           Classes="innerMenuItem"
                           Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
                     <MenuItem.Icon>

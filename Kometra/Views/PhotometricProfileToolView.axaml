@@ -6,11 +6,12 @@
         xmlns:sp="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
-        xmlns:models="using:Kometra.ViewModels.ImageProcessing"
+        xmlns:models="using:Kometra.Models.Processing.Analysis"
+        xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
-        x:Class="Kometra.Views.PhotometricClippingToolView"
-        x:DataType="vm:PhotometricClippingToolViewModel"
-        Title="Taglio Fotometrico (Profilo Lineare)"
+        x:Class="Kometra.Views.PhotometricProfileToolView"
+        x:DataType="vm:PhotometricProfileToolViewModel"
+        Title="{Binding [MenuPhotometricProfile], Source={x:Static infrastructure:LocalizationManager.Instance}}"
         Width="1280" Height="800"
         MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
@@ -32,8 +33,8 @@
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="TAGLIO FOTOMETRICO" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
-                <TextBlock Text="Clicca e trascina sull'immagine a destra per tracciare una linea di taglio. Il grafico si aggiornerà in tempo reale." 
+                <TextBlock Text="{Binding [TitlePhotometric], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
+                <TextBlock Text="{Binding [DescPhotometric], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
 
@@ -42,12 +43,12 @@
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Partenza X (px)" Classes="paramLabel"/>
+                                <TextBlock Text="{Binding [ParamStartX], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                                 <NumericUpDown Name="StartXBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
                                                ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Partenza Y (px)" Classes="paramLabel"/>
+                                <TextBlock Text="{Binding [ParamStartY], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                                 <NumericUpDown Name="StartYBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
                                                ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
@@ -55,12 +56,12 @@
 
                         <Grid ColumnDefinitions="*, 10, *">
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Arrivo X (px)" Classes="paramLabel"/>
+                                <TextBlock Text="{Binding [ParamEndX], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                                 <NumericUpDown Name="EndXBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
                                                ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Arrivo Y (px)" Classes="paramLabel"/>
+                                <TextBlock Text="{Binding [ParamEndY], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                                 <NumericUpDown Name="EndYBox" Minimum="0" Maximum="100000" Increment="1" FormatString="F0" 
                                                ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                             </StackPanel>
@@ -80,15 +81,15 @@
                 <Grid>
                     <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
                                 Background="Transparent" BorderThickness="0" Padding="0">
-                        <TabItem Header="Grafico">
+                        <TabItem Header="{Binding [TabGraph], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <sp:AvaPlot Name="ProfilePlot" Margin="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                         </TabItem>
-                        <TabItem Header="Tabella">
+                        <TabItem Header="{Binding [TabTable], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <Grid RowDefinitions="Auto, *">
                                 <Grid Grid.Row="0" ColumnDefinitions="*, *, *" Margin="8,8,8,8">
                                     <TextBlock Grid.Column="0" Text="Pixel" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Column="1" Text="Distanza (px)" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="Intensità (ADU)" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding [ColDistance], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding [ColIntensity], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding ProfileData}" Margin="4,0">
@@ -118,7 +119,7 @@
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
                         
-                <Button Grid.Column="2" Content="Conferma Nodo" 
+                <Button Grid.Column="2" Content="{Binding [BtnConfirmNode], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
                         Command="{Binding ApplyCommand}" 
                         IsEnabled="{Binding HasCalculatedProfile}"
                         Classes="apply" 
@@ -147,13 +148,13 @@
                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
                                 HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
                                 IsVisible="{Binding HasMultipleFiles}">
-                        <Button Command="{Binding PreviousImageCommand}" ToolTip.Tip="Immagine precedente">
+                        <Button Command="{Binding PreviousImageCommand}" ToolTip.Tip="{Binding [TooltipPrevImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
                         </Button>
                         <Border Background="#66000000" CornerRadius="4" Padding="8,0" VerticalAlignment="Stretch">
                             <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
                         </Border>
-                        <Button Command="{Binding NextImageCommand}" ToolTip.Tip="Immagine successiva">
+                        <Button Command="{Binding NextImageCommand}" ToolTip.Tip="{Binding [TooltipNextImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
                         </Button>
                     </StackPanel>
@@ -161,7 +162,7 @@
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                             <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
-                            <TextBlock Text="Elaborazione grafico in corso..." Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding [StatusAnalyzing], Source={x:Static infrastructure:LocalizationManager.Instance}}" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Border>
                 </Grid>

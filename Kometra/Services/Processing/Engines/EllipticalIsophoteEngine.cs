@@ -8,165 +8,66 @@ namespace Kometra.Services.Processing.Engines;
 
 public class EllipticalIsophoteEngine : IEllipticalIsophoteEngine
 {
-    /// <summary>
-    /// Campiona l'intensità lungo il perimetro di un'ellisse ruotata.
-    /// </summary>
-    public EllipticalIsophoteDataPoint AnalyzeEllipse(
-        Mat srcMat, 
-        double centerX, 
-        double centerY, 
-        double semiMajorA, 
-        double ellipticity, 
-        double positionAngleRad, 
-        int samplePoints = 360)
+    public IsophoteAnalysisResult CalculateIsophotes(Mat image, EllipticalIsophoteParameters parameters)
     {
-        double semiMinorB = semiMajorA * (1.0 - ellipticity);
-        double cosTheta = Math.Cos(positionAngleRad);
-        double sinTheta = Math.Sin(positionAngleRad);
+        if (image == null || image.Empty()) return new IsophoteAnalysisResult();
 
-        var sampledValues = new List<float>(samplePoints);
-        var indexer = srcMat.GetGenericIndexer<float>();
-        int rows = srcMat.Rows;
-        int cols = srcMat.Cols;
+        Mat compositeBgra = new Mat(image.Rows, image.Cols, MatType.CV_8UC4, new Scalar(255, 255, 255, 255));
+        var tempPoints = new List<EllipticalIsophoteDataPoint>();
+        var validContours = new List<(double Level, Point[][] Contours, double Area)>();
 
-        for (int i = 0; i < samplePoints; i++)
+        for (double level = parameters.MinValue; level <= parameters.MaxValue; level += parameters.StepSize)
         {
-            double E = (2.0 * Math.PI * i) / samplePoints;
-            double cosE = Math.Cos(E);
-            double sinE = Math.Sin(E);
+            using Mat mask = new Mat();
+            Cv2.Threshold(image, mask, level, 255, ThresholdTypes.Binary);
+            mask.ConvertTo(mask, MatType.CV_8UC1);
 
-            // Equazioni parametriche dell'ellisse ruotata di un angolo theta
-            double x = centerX + semiMajorA * cosE * cosTheta - semiMinorB * sinE * sinTheta;
-            double y = centerY + semiMajorA * cosE * sinTheta + semiMinorB * sinE * cosTheta;
+            Cv2.FindContours(mask, out Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxNone);
 
-            int ix = (int)Math.Round(x);
-            int iy = (int)Math.Round(y);
-
-            if (ix >= 0 && ix < cols && iy >= 0 && iy < rows)
+            if (contours.Length > 0)
             {
-                sampledValues.Add(indexer[iy, ix]);
+                double area = contours.Sum(c => Cv2.ContourArea(c));
+                validContours.Add((level, contours, area));
             }
         }
 
-        if (sampledValues.Count == 0)
+        int totalContours = validContours.Count;
+        for (int i = 0; i < totalContours; i++)
         {
-            return new EllipticalIsophoteDataPoint 
-            { 
-                SemiMajorAxis = semiMajorA, 
-                SemiMinorAxis = semiMinorB, 
-                Ellipticity = ellipticity, 
-                PositionAngleRad = positionAngleRad 
-            };
+            var item = validContours[i];
+            double colorRatio = totalContours > 1 ? (double)i / (totalContours - 1) : 1.0;
+            
+            // Qui usiamo il colore convertito se monocromatico
+            Scalar overlayColor = parameters.IsMonochromatic 
+                ? HexToScalar(parameters.MonoColorHex) 
+                : GetJetColorWithAlpha(colorRatio);
+            
+            Cv2.DrawContours(compositeBgra, item.Contours, -1, overlayColor, 2);
+            tempPoints.Add(new EllipticalIsophoteDataPoint { MeanValue = item.Level, PixelCount = (int)item.Area });
         }
 
-        sampledValues.Sort();
-        double mean = sampledValues.Average();
-        double median = sampledValues[sampledValues.Count / 2];
-        
-        double sumSq = sampledValues.Sum(v => (v - mean) * (v - mean));
-        double stdDev = Math.Sqrt(sumSq / sampledValues.Count);
-
-        return new EllipticalIsophoteDataPoint
-        {
-            SemiMajorAxis = semiMajorA,
-            SemiMinorAxis = semiMinorB,
-            Ellipticity = ellipticity,
-            PositionAngleRad = positionAngleRad,
-            MeanValue = mean,
-            MedianValue = median,
-            StandardDeviation = stdDev,
-            PixelCount = sampledValues.Count
-        };
+        return new IsophoteAnalysisResult { Isophotes = tempPoints, OverlayImage = compositeBgra };
     }
 
-    /// <summary>
-    /// Calcola l'intero profilo di isofote ellittiche dal centro verso il semiasse maggiore massimo.
-    /// </summary>
-    public List<EllipticalIsophoteDataPoint> AnalyzeProfile(
-        Mat srcMat,
-        double centerX,
-        double centerY,
-        double maxSemiMajorA,
-        double stepSize,
-        double ellipticity,
-        double positionAngleRad)
+    private Scalar HexToScalar(string hex)
     {
-        var results = new List<EllipticalIsophoteDataPoint>();
-        for (double a = stepSize; a <= maxSemiMajorA; a += stepSize)
-        {
-            results.Add(AnalyzeEllipse(srcMat, centerX, centerY, a, ellipticity, positionAngleRad));
-        }
-        return results;
+        hex = hex.Replace("#", "");
+        if (hex.Length == 8) hex = hex.Substring(2); // Rimuove Alpha se presente
+        if (hex.Length != 6) return new Scalar(232, 88, 128, 255); // Fallback
+
+        byte r = Convert.ToByte(hex.Substring(0, 2), 16);
+        byte g = Convert.ToByte(hex.Substring(2, 2), 16);
+        byte b = Convert.ToByte(hex.Substring(4, 2), 16);
+        return new Scalar(b, g, r, 255); // OpenCV usa BGRA
     }
 
-    /// <summary>
-    /// Genera l'immagine modello 2D FITS partendo dal profilo ellittico analizzato.
-    /// </summary>
-    public Mat Generate2DEllipticalModel(
-        int rows, 
-        int cols, 
-        double centerX, 
-        double centerY, 
-        List<EllipticalIsophoteDataPoint> isophotes,
-        double ellipticity,
-        double positionAngleRad)
+    private Scalar GetJetColorWithAlpha(double ratio)
     {
-        var modelMat = new Mat(rows, cols, MatType.CV_32FC1, new Scalar(0));
-        var indexer = modelMat.GetGenericIndexer<float>();
-
-        var sorted = isophotes.OrderBy(p => p.SemiMajorAxis).ToList();
-        if (sorted.Count == 0) return modelMat;
-
-        double maxA = sorted.Last().SemiMajorAxis;
-        double cosTheta = Math.Cos(positionAngleRad);
-        double sinTheta = Math.Sin(positionAngleRad);
-        
-        // Rapporto tra gli assi q = b/a = 1 - ellitticità
-        double q = Math.Max(0.05, 1.0 - ellipticity); 
-
-        for (int y = 0; y < rows; y++)
-        {
-            for (int x = 0; x < cols; x++)
-            {
-                double dx = x - centerX;
-                double dy = y - centerY;
-
-                // Ruotiamo le coordinate nel sistema di riferimento dell'ellisse
-                double xRot = dx * cosTheta + dy * sinTheta;
-                double yRot = -dx * sinTheta + dy * cosTheta;
-
-                // Calcolo del semiasse maggiore 'a' equivalente passante per il pixel (x, y)
-                // Dalla formula: (xRot / a)^2 + (yRot / b)^2 = 1 => a = sqrt(xRot^2 + (yRot / q)^2)
-                double effectiveA = Math.Sqrt(xRot * xRot + (yRot * yRot) / (q * q));
-
-                if (effectiveA <= maxA)
-                {
-                    indexer[y, x] = (float)EvaluateEllipticalValue(sorted, effectiveA);
-                }
-                else
-                {
-                    indexer[y, x] = 0f;
-                }
-            }
-        }
-
-        return modelMat;
-    }
-
-    private static double EvaluateEllipticalValue(List<EllipticalIsophoteDataPoint> pts, double a)
-    {
-        if (a <= pts[0].SemiMajorAxis) return pts[0].MeanValue;
-        if (a >= pts[^1].SemiMajorAxis) return pts[^1].MeanValue;
-
-        // Interpolazione lineare lungo il semiasse maggiore
-        for (int i = 0; i < pts.Count - 1; i++)
-        {
-            if (a >= pts[i].SemiMajorAxis && a <= pts[i + 1].SemiMajorAxis)
-            {
-                double t = (a - pts[i].SemiMajorAxis) / (pts[i + 1].SemiMajorAxis - pts[i].SemiMajorAxis);
-                return pts[i].MeanValue + t * (pts[i + 1].MeanValue - pts[i].MeanValue);
-            }
-        }
-        return 0;
+        byte val = (byte)Math.Clamp(ratio * 255.0, 0, 255);
+        using var mat1x1 = new Mat(1, 1, MatType.CV_8UC1, new Scalar(val));
+        using var color1x1 = new Mat();
+        Cv2.ApplyColorMap(mat1x1, color1x1, ColormapTypes.Jet);
+        var vec = color1x1.Get<Vec3b>(0, 0);
+        return new Scalar(vec.Item0, vec.Item1, vec.Item2, 255);
     }
 }

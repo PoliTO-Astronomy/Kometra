@@ -11,7 +11,7 @@ public class RadialProfileEngine : IRadialProfileEngine
     public IReadOnlyList<RadialProfileDataPoint> CalculateProfile(Mat image, RadialProfileParameters parameters)
     {
         if (image == null || image.Empty())
-            throw new ArgumentNullException(nameof(image), "L'immagine di input non può essere nulla o vuota.");
+            return Array.Empty<RadialProfileDataPoint>();
 
         if (parameters.StepSize <= 0 || parameters.MaxRadius <= 0)
             return Array.Empty<RadialProfileDataPoint>();
@@ -29,7 +29,6 @@ public class RadialProfileEngine : IRadialProfileEngine
         int maxY = Math.Min(image.Rows - 1, (int)Math.Ceiling(parameters.CenterY + parameters.MaxRadius));
 
         double maxRadiusSq = parameters.MaxRadius * parameters.MaxRadius;
-
         bool checkAngle = parameters.IntegrationAngle < 180.0;
         
         double startAngle = parameters.StartingAngle % 360.0;
@@ -47,10 +46,8 @@ public class RadialProfileEngine : IRadialProfileEngine
 
         for (int y = minY; y <= maxY; y++)
         {
-            // La Y è invertita in modo che +Y punti verso l'alto
-            double dyForAngle = parameters.CenterY - y; 
-            double dyForDist = y - parameters.CenterY;
-            double dySq = dyForDist * dyForDist;
+            double dy = y - parameters.CenterY;
+            double dySq = dy * dy;
 
             for (int x = minX; x <= maxX; x++)
             {
@@ -62,8 +59,9 @@ public class RadialProfileEngine : IRadialProfileEngine
 
                 if (checkAngle && distSq > 0.0001) 
                 {
-                    // Atan2(Y, X) dove X positivo è 0°, Y positivo (sopra) è 90°
-                    double angleDeg = Math.Atan2(dyForAngle, dx) * (180.0 / Math.PI);
+                    // CONVENZIONE ASTRONOMICA: 0° = Nord (Alto), 90° = Est (Sinistra), rotazione antioraria.
+                    // Math.Atan2(-dx, -dy) mappa: dx=0,dy=-1 -> 0° | dx=-1,dy=0 -> 90° | dx=0,dy=1 -> 180° | dx=1,dy=0 -> 270°
+                    double angleDeg = Math.Atan2(-dx, -dy) * (180.0 / Math.PI);
                     if (angleDeg < 0) angleDeg += 360.0;
 
                     bool inSector = false;

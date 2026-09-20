@@ -15,6 +15,7 @@ using Avalonia.VisualTree;
 using Kometra.ViewModels.ImageProcessing;
 using Kometra.ViewModels.Visualization;
 using Kometra.Models.Processing.Analysis;
+using Kometra.Infrastructure;
 
 namespace Kometra.Views;
 
@@ -88,6 +89,20 @@ public partial class RadialProfileToolView : Window
         }
     }
 
+    private string GetSelectionColorHex()
+    {
+        if (Application.Current != null)
+        {
+            if (Application.Current.TryGetResource("SelectionColor", out var res) || 
+                Application.Current.TryGetResource("SystemAccentColor", out res))
+            {
+                if (res is Avalonia.Media.Color c) return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+                if (res is Avalonia.Media.SolidColorBrush b) return $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}";
+            }
+        }
+        return "#8058E8";
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         Dispatcher.UIThread.InvokeAsync(() =>
@@ -130,8 +145,8 @@ public partial class RadialProfileToolView : Window
         var box = this.FindControl<NumericUpDown>(name);
         if (box != null)
         {
+            // Lasciamo gestire il testo ad Avalonia usando il FormatString="F2" definito nello XAML!
             box.Value = (decimal)value;
-            box.Text = value.ToString(CultureInfo.CurrentCulture);
         }
     }
 
@@ -174,7 +189,6 @@ public partial class RadialProfileToolView : Window
         double diff = Math.Abs(newValue - oldValue);
         double increment = (double)(box.Increment > 0 ? box.Increment : 1);
 
-        // Se l'input proviene dalla tastiera, non eseguire il calcolo continuo
         if (box.IsKeyboardFocusWithin && Math.Abs(diff - increment) > 0.0001)
         {
             return;
@@ -189,7 +203,6 @@ public partial class RadialProfileToolView : Window
         {
             CommitValue(box, (double)box.Value.Value);
         }
-        // Ripristina l'interfaccia senza mostrare errori in caso di testo vuoto
         UpdateUiValues();
     }
 
@@ -229,29 +242,31 @@ public partial class RadialProfileToolView : Window
                 ys[i] = _vm.ProfilePoints[i].Value;
             }
 
-            var scatter = plotControl.Plot.Add.Scatter(xs, ys, ScottPlot.Color.FromHex("#8058E8"));
+            string hexColor = GetSelectionColorHex();
+            var scatter = plotControl.Plot.Add.Scatter(xs, ys, ScottPlot.Color.FromHex(hexColor));
             scatter.MarkerStyle.Size = 0;
             scatter.LineStyle.Width = 2.5f; 
             
+            var loc = LocalizationManager.Instance;
+            string valueStr = loc["ColValue"] ?? "Value";
+            
             string baseLabel = _vm.SelectedMode switch
             {
-                RadialProfileMode.Sum => "Total Intensity [ADU]",
-                RadialProfileMode.Median => "Median Intensity [ADU]",
-                _ => "Normalized Integrated Intensity"
+                RadialProfileMode.Sum => $"{valueStr} (Sum)",
+                RadialProfileMode.Median => $"{valueStr} (Median)",
+                _ => $"{valueStr} (Mean)"
             };
 
-            plotControl.Plot.Axes.Title.Label.Text = "Radial Profile";
+            plotControl.Plot.Axes.Title.Label.Text = $"\n{loc["MenuRadialProfiles"]}\n";
             plotControl.Plot.Axes.Title.Label.FontSize = 20;
-            plotControl.Plot.Axes.Title.Label.Padding = 5;
 
-            plotControl.Plot.Axes.Bottom.Label.Text = "Radius [pixels]";
+            plotControl.Plot.Axes.Bottom.Label.Text = $"{loc["ColRadius"]} [px]";
             plotControl.Plot.Axes.Bottom.Label.FontSize = 16;
             plotControl.Plot.Axes.Bottom.TickLabelStyle.FontSize = 14;
 
-            plotControl.Plot.Axes.Left.Label.Text = baseLabel; 
+            plotControl.Plot.Axes.Left.Label.Text = $"\n{baseLabel}\n"; 
             plotControl.Plot.Axes.Left.Label.FontSize = 16;
             plotControl.Plot.Axes.Left.TickLabelStyle.FontSize = 14;
-            plotControl.Plot.Axes.Left.Label.Padding = 5; 
             plotControl.Plot.Axes.Left.MinimumSize = 80; 
             
             var yTickGen = new ScottPlot.TickGenerators.NumericAutomatic { TargetTickCount = 8 };
@@ -337,8 +352,10 @@ public partial class RadialProfileToolView : Window
 
             Point pCenter = new Point(screenX, screenY);
             
-            Point p1 = new Point(screenX + r * Math.Cos(a1), screenY - r * Math.Sin(a1));
-            Point p2 = new Point(screenX + r * Math.Cos(a2), screenY - r * Math.Sin(a2));
+            // CONVENZIONE ASTRONOMICA PER DISEGNO INTERFACCIA
+            // 0° = Nord (Alto), 90° = Est (Sinistra), rotazione antioraria.
+            Point p1 = new Point(screenX - r * Math.Sin(a1), screenY - r * Math.Cos(a1));
+            Point p2 = new Point(screenX - r * Math.Sin(a2), screenY - r * Math.Cos(a2));
 
             var geo = new PathGeometry();
             var figure = new PathFigure { StartPoint = pCenter, IsClosed = true };

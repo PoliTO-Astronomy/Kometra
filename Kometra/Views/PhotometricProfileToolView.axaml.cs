@@ -11,16 +11,17 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Kometra.ViewModels.ImageProcessing;
 using Kometra.ViewModels.Visualization;
+using Kometra.Infrastructure;
 
 namespace Kometra.Views;
 
-public partial class PhotometricClippingToolView : Window
+public partial class PhotometricProfileToolView : Window
 {
     private Line? _cutLine;
-    private PhotometricClippingToolViewModel? _vm;
+    private PhotometricProfileToolViewModel? _vm;
     private bool _isDragging = false;
 
-    public PhotometricClippingToolView()
+    public PhotometricProfileToolView()
     {
         InitializeComponent();
         
@@ -43,7 +44,7 @@ public partial class PhotometricClippingToolView : Window
 
     private void OnWindowLoaded(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PhotometricClippingToolViewModel vm)
+        if (DataContext is PhotometricProfileToolViewModel vm)
         {
             _vm = vm;
             _vm.PropertyChanged += OnViewModelPropertyChanged;
@@ -79,18 +80,32 @@ public partial class PhotometricClippingToolView : Window
             if (_vm == null) return;
             switch (e.PropertyName)
             {
-                case nameof(PhotometricClippingToolViewModel.StartX):
+                case nameof(PhotometricProfileToolViewModel.StartX):
                     UpdateBox("StartXBox", _vm.StartX); UpdateLineOverlay(); break;
-                case nameof(PhotometricClippingToolViewModel.StartY):
+                case nameof(PhotometricProfileToolViewModel.StartY):
                     UpdateBox("StartYBox", _vm.StartY); UpdateLineOverlay(); break;
-                case nameof(PhotometricClippingToolViewModel.EndX):
+                case nameof(PhotometricProfileToolViewModel.EndX):
                     UpdateBox("EndXBox", _vm.EndX); UpdateLineOverlay(); break;
-                case nameof(PhotometricClippingToolViewModel.EndY):
+                case nameof(PhotometricProfileToolViewModel.EndY):
                     UpdateBox("EndYBox", _vm.EndY); UpdateLineOverlay(); break;
-                case nameof(PhotometricClippingToolViewModel.Viewport):
+                case nameof(PhotometricProfileToolViewModel.Viewport):
                     UpdateLineOverlay(); break;
             }
         });
+    }
+
+    private string GetSelectionColorHex()
+    {
+        if (Application.Current != null)
+        {
+            if (Application.Current.TryFindResource("SelectionColor", out var res) || 
+                Application.Current.TryFindResource("SystemAccentColor", out res))
+            {
+                if (res is Avalonia.Media.Color c) return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+                if (res is Avalonia.Media.SolidColorBrush b) return $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}";
+            }
+        }
+        return "#8058E8";
     }
 
     private void UpdateBox(string name, double value)
@@ -155,7 +170,6 @@ public partial class PhotometricClippingToolView : Window
 
         double increment = (double)(box.Increment > 0 ? box.Increment : 1);
 
-        // Se l'input proviene dalla tastiera, non eseguire il calcolo continuo
         if (box.IsKeyboardFocusWithin && Math.Abs(diff - increment) > 0.0001)
         {
             return;
@@ -170,7 +184,6 @@ public partial class PhotometricClippingToolView : Window
         {
             CommitValue(box, (double)box.Value.Value);
         }
-        // Ripristina l'interfaccia senza mostrare errori in caso di testo vuoto
         UpdateUiValues();
     }
 
@@ -210,17 +223,19 @@ public partial class PhotometricClippingToolView : Window
                 ys[i] = _vm.ProfileData[i].Value;
             }
 
-            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex("#8058E8")); 
+            string hexColor = GetSelectionColorHex();
+            var line = plotControl.Plot.Add.ScatterLine(xs, ys, ScottPlot.Color.FromHex(hexColor)); 
             line.LineWidth = 2.5f; 
             
-            plotControl.Plot.Axes.Title.Label.Text = "\nTaglio Fotometrico\n";
+            var loc = LocalizationManager.Instance;
+            plotControl.Plot.Axes.Title.Label.Text = $"\n{loc["MenuPhotometricProfile"]}\n";
             plotControl.Plot.Axes.Title.Label.FontSize = 20;
 
-            plotControl.Plot.Axes.Bottom.Label.Text = "Distanza [px]";
+            plotControl.Plot.Axes.Bottom.Label.Text = loc["ColDistance"];
             plotControl.Plot.Axes.Bottom.Label.FontSize = 16;
             plotControl.Plot.Axes.Bottom.TickLabelStyle.FontSize = 14;
 
-            plotControl.Plot.Axes.Left.Label.Text = "\nIntensità [ADU]\n"; 
+            plotControl.Plot.Axes.Left.Label.Text = $"\n{loc["ColIntensity"]}\n"; 
             plotControl.Plot.Axes.Left.Label.FontSize = 16;
             plotControl.Plot.Axes.Left.TickLabelStyle.FontSize = 14;
             plotControl.Plot.Axes.Left.MinimumSize = 80; 

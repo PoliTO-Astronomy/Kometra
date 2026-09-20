@@ -7,10 +7,11 @@
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
         xmlns:models="using:Kometra.Models.Processing.Analysis"
+        xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
         x:Class="Kometra.Views.RadialProfileToolView"
         x:DataType="vm:RadialProfileToolViewModel"
-        Title="Analisi Profilo Radiale"
+        Title="{Binding [MenuRadialProfiles], Source={x:Static infrastructure:LocalizationManager.Instance}}"
         Width="1280" Height="800"
         MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
@@ -32,8 +33,8 @@
         <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
             
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="PROFILO RADIALE" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
-                <TextBlock Text="Clicca sull'immagine a destra o cambia i parametri per aggiornare il grafico in tempo reale." 
+                <TextBlock Text="{Binding [TitleRadialProfile], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
+                <TextBlock Text="{Binding [DescRadialProfile], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
                            FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
 
@@ -41,25 +42,25 @@
                 <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*, 10, *">
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Centro X (px)" Classes="paramLabel"/>
-                            <NumericUpDown Name="CenterXBox" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" 
+                            <TextBlock Text="{Binding [ParamCenterX], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="CenterXBox" Minimum="0" Maximum="100000" Increment="0.1" FormatString="F2" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Centro Y (px)" Classes="paramLabel"/>
-                            <NumericUpDown Name="CenterYBox" Minimum="0" Maximum="100000" Increment="0.5" FormatString="F1" 
+                            <TextBlock Text="{Binding [ParamCenterY], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="CenterYBox" Minimum="0" Maximum="100000" Increment="0.1" FormatString="F2" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
                     </Grid>
 
                     <Grid ColumnDefinitions="*, 10, *">
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Raggio Max (px)" Classes="paramLabel"/>
+                            <TextBlock Text="{Binding [ParamMaxRadius], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                             <NumericUpDown Name="MaxRadiusBox" Minimum="5" Maximum="2000" Increment="5" FormatString="F0" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Step / Bin (px)" Classes="paramLabel"/>
+                            <TextBlock Text="{Binding [ParamStepBin], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                             <NumericUpDown Name="StepSizeBox" Minimum="0.5" Maximum="50" Increment="0.5" FormatString="F1" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
@@ -67,19 +68,19 @@
 
                     <Grid ColumnDefinitions="*, 10, *">
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Angolo Partenza (°)" Classes="paramLabel"/>
+                            <TextBlock Text="{Binding [ParamStartAngle], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                             <NumericUpDown Name="StartingAngleBox" Minimum="-360" Maximum="360" Increment="5" FormatString="F0" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Angolo Integraz. (°)" Classes="paramLabel"/>
+                            <TextBlock Text="{Binding [ParamIntAngle], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                             <NumericUpDown Name="IntegrationAngleBox" Minimum="1" Maximum="180" Increment="5" FormatString="F0" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
                     </Grid>
 
                     <StackPanel>
-                        <TextBlock Text="Metrica Statistica per Anello" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding [ParamStatMetric], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
                         <ComboBox SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch">
                             <models:RadialProfileMode>Mean</models:RadialProfileMode>
                             <models:RadialProfileMode>Median</models:RadialProfileMode>
@@ -93,16 +94,16 @@
                 <Grid>
                     <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
                                 Background="Transparent" BorderThickness="0" Padding="0">
-                        <TabItem Header="Grafico">
+                        <TabItem Header="{Binding [TabGraph], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <sp:AvaPlot Name="ProfilePlot" Margin="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                         </TabItem>
-                        <TabItem Header="Tabella">
+                        <TabItem Header="{Binding [TabTable], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <Grid RowDefinitions="Auto, *">
                                 <Grid Grid.Row="0" ColumnDefinitions="2*, 3*, 3*, 2*" Margin="8,8,8,8">
-                                    <TextBlock Grid.Column="0" Text="Raggio" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Column="1" Text="Valore" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Column="2" Text="Dev. Std" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Column="3" Text="Pixel #" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="0" Text="{Binding [ColRadius], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding [ColValue], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding [ColStdDev], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding [ColPixelCount], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding ProfilePoints}" Margin="4,0">
@@ -133,7 +134,7 @@
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
                         
-                <Button Grid.Column="2" Content="Conferma Nodo" 
+                <Button Grid.Column="2" Content="{Binding [BtnConfirmNode], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
                         Command="{Binding ApplyCommand}" 
                         IsEnabled="{Binding HasProfileData}"
                         Classes="apply" 
@@ -160,13 +161,13 @@
                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
                                 HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
                                 IsVisible="{Binding HasMultipleImages}">
-                        <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="Immagine precedente">
+                        <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="{Binding [TooltipPrevImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
                         </Button>
                         <Border Background="#66000000" CornerRadius="4" Padding="8,0" VerticalAlignment="Stretch">
                             <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
                         </Border>
-                        <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="Immagine successiva">
+                        <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="{Binding [TooltipNextImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
                         </Button>
                     </StackPanel>
@@ -174,7 +175,7 @@
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                             <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
-                            <TextBlock Text="Elaborazione profilo in corso..." Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding [StatusAnalyzing], Source={x:Static infrastructure:LocalizationManager.Instance}}" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Border>
                 </Grid>

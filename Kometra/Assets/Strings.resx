@@ -651,11 +651,6 @@
     <data name="ExportStatusDone" xml:space="preserve"><value>Export completed.</value></data>
     <data name="ExportStretchAuto" xml:space="preserve"><value>Auto Stretch</value></data>
     <data name="ExportStretchManual" xml:space="preserve"><value>Manual</value></data>
-    <data name="ExportSelectFolderTitle" xml:space="preserve"><value>Select destination</value></data>
-    <data name="ExportStatusQueued" xml:space="preserve"><value>Queued</value></data>
-    <data name="ExportStatusDone" xml:space="preserve"><value>Export completed.</value></data>
-    <data name="ExportStretchAuto" xml:space="preserve"><value>Auto Stretch</value></data>
-    <data name="ExportStretchManual" xml:space="preserve"><value>Manual</value></data>
     <data name="ImportExtractingMef" xml:space="preserve"><value>Extracting extensions from {0}...</value></data>
     <data name="ImportStatusStarting" xml:space="preserve"><value>Starting calibration...</value></data>
     <data name="ImportStatusProcessing" xml:space="preserve"><value>Processing: {0}/{1} ({2})</value></data>
@@ -734,4 +729,39 @@
     <data name="StatusReady" xml:space="preserve"><value>Ready.</value></data>
     <data name="StatusCancelled" xml:space="preserve"><value>Operation cancelled.</value></data>
     <data name="VideoExportStatusCancelling" xml:space="preserve"><value>Cancelling export...</value></data>
+    <data name="MenuGraphs" xml:space="preserve"><value>Graphs</value></data>
+    <data name="MenuPhotometricProfile" xml:space="preserve"><value>Photometric Profile</value></data>
+    <data name="MenuRadialProfiles" xml:space="preserve"><value>Radial Profiles</value></data>
+    <data name="MenuIsophotes" xml:space="preserve"><value>Isophotes</value></data>
+    <data name="TitleRadialProfile" xml:space="preserve"><value>RADIAL PROFILE</value></data>
+    <data name="DescRadialProfile" xml:space="preserve"><value>Click on the image or change parameters to update the graph in real-time.</value></data>
+    <data name="TitlePhotometric" xml:space="preserve"><value>PHOTOMETRIC PROFILE</value></data>
+    <data name="DescPhotometric" xml:space="preserve"><value>Click and drag on the image to draw a cut line. The graph will update in real-time.</value></data>
+    <data name="TitleIsophotes" xml:space="preserve"><value>ISOPHOTES</value></data>
+    <data name="DescIsophotes" xml:space="preserve"><value>Generate true topological contours on a white background. Change parameters to update the graph.</value></data>
+    <data name="ParamStartX" xml:space="preserve"><value>Start X (px)</value></data>
+    <data name="ParamStartY" xml:space="preserve"><value>Start Y (px)</value></data>
+    <data name="ParamEndX" xml:space="preserve"><value>End X (px)</value></data>
+    <data name="ParamEndY" xml:space="preserve"><value>End Y (px)</value></data>
+    <data name="ParamCenterX" xml:space="preserve"><value>Center X (px)</value></data>
+    <data name="ParamCenterY" xml:space="preserve"><value>Center Y (px)</value></data>
+    <data name="ParamMaxRadius" xml:space="preserve"><value>Max Radius (px)</value></data>
+    <data name="ParamStepBin" xml:space="preserve"><value>Step / Bin (px)</value></data>
+    <data name="ParamStartAngle" xml:space="preserve"><value>Start Angle (°)</value></data>
+    <data name="ParamIntAngle" xml:space="preserve"><value>Integration Angle (°)</value></data>
+    <data name="ParamStatMetric" xml:space="preserve"><value>Ring Statistical Metric</value></data>
+    <data name="ParamMinAdu" xml:space="preserve"><value>Minimum (ADU)</value></data>
+    <data name="ParamMaxAdu" xml:space="preserve"><value>Maximum (ADU)</value></data>
+    <data name="ParamMonochromatic" xml:space="preserve"><value>Monochromatic</value></data>
+    <data name="TabGraph" xml:space="preserve"><value>Graph</value></data>
+    <data name="TabTable" xml:space="preserve"><value>Table</value></data>
+    <data name="ColDistance" xml:space="preserve"><value>Distance (px)</value></data>
+    <data name="ColIntensity" xml:space="preserve"><value>Intensity (ADU)</value></data>
+    <data name="ColRadius" xml:space="preserve"><value>Radius</value></data>
+    <data name="ColValue" xml:space="preserve"><value>Value</value></data>
+    <data name="ColStdDev" xml:space="preserve"><value>Std Dev</value></data>
+    <data name="ColPixelCount" xml:space="preserve"><value>Pixel #</value></data>
+    <data name="ColIsoLevel" xml:space="preserve"><value>Isophote Level (ADU)</value></data>
+    <data name="ColArea" xml:space="preserve"><value>Enclosed Area (px²)</value></data>
+    <data name="BtnConfirmNode" xml:space="preserve"><value>Confirm Node</value></data>
 </root>

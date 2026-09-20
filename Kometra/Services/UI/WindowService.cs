@@ -308,21 +308,21 @@ public class WindowService : IWindowService
         await ShowDialogAsync(view, viewModel);
     }
 
-    public async Task<List<string>?> ShowPhotometricClippingWindowAsync(List<FitsFileReference> files, VisualizationMode mode)
+    public async Task<List<string>?> ShowPhotometricProfileWindowAsync(List<FitsFileReference> files, VisualizationMode mode)
     {
         if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
 
         // Risoluzione delle dipendenze dal contenitore globale (aggiunto dataManager)
-        var coordinator = _serviceProvider.GetRequiredService<IPhotometryCoordinator>();
+        var coordinator = _serviceProvider.GetRequiredService<IPhotometricProfileCoordinator>();
         var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
         var converter = _serviceProvider.GetRequiredService<IFitsOpenCvConverter>();
         var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>(); // <-- NUOVO
 
         // Creazione del ViewModel passando anche dataManager come quinto parametro
-        using var viewModel = new PhotometricClippingToolViewModel(files, coordinator, rendererFactory, converter, dataManager, this);
+        using var viewModel = new PhotometricProfileToolViewModel(files, coordinator, rendererFactory, converter, dataManager, this);
         
         // Creazione della View e assegnazione del DataContext
-        var view = new PhotometricClippingToolView { DataContext = viewModel };
+        var view = new PhotometricProfileToolView { DataContext = viewModel };
 
         // Visualizzazione della finestra modale e restituzione dei percorsi solo se l'utente preme "Applica"
         return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
