@@ -195,6 +195,14 @@
                     <avalonia:MaterialIcon Kind="FileDocumentEdit" />
                 </MenuItem.Icon>
             </MenuItem>
+
+            <MenuItem Header="Statistiche FITS..."
+                      Classes="innerMenuItem"
+                      Command="{Binding BoardVm.ShowFitsStatisticsWindowCommand}">
+                <MenuItem.Icon>
+                    <avalonia:MaterialIcon Kind="ChartBar" />
+                </MenuItem.Icon>
+            </MenuItem>
             
             <MenuItem Header="{Binding [MenuPlateSolving], Source={x:Static infrastructure:LocalizationManager.Instance}}"
                       Classes="innerMenuItem"

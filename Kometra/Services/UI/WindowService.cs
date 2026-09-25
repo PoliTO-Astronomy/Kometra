@@ -404,4 +404,19 @@ public class WindowService : IWindowService
         bool success = (bool)(propInfo?.GetValue(viewModel) ?? false);
         return success ? resultSelector(viewModel) : default;
     }
+
+    public async Task ShowFitsStatisticsWindowAsync(List<FitsFileReference> files, Kometra.Services.Fits.IFitsDataManager dataManager)
+    {
+        var vm = new Kometra.ViewModels.Fits.FitsStatisticsViewModel(files, dataManager);
+        var window = new Kometra.Views.FitsStatisticsView { DataContext = vm };
+        
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+        {
+            await window.ShowDialog(desktop.MainWindow);
+        }
+        else
+        {
+            window.Show();
+        }
+    }
 }

@@ -764,4 +764,5 @@
     <data name="ColIsoLevel" xml:space="preserve"><value>Isophote Level (ADU)</value></data>
     <data name="ColArea" xml:space="preserve"><value>Enclosed Area (px²)</value></data>
     <data name="BtnConfirmNode" xml:space="preserve"><value>Confirm Node</value></data>
+    <data name="ColInclination" xml:space="preserve"><value>Inclination</value></data>
 </root>

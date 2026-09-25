@@ -4,7 +4,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
-        xmlns:models="using:Kometra.Models.Processing.Analysis"
         xmlns:vis="using:Kometra.ViewModels.Visualization"
         xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
@@ -14,14 +13,6 @@
         Width="1280" Height="800"
         MinWidth="1200" MinHeight="700"
         WindowStartupLocation="CenterOwner">
-
-    <Window.DataTemplates>
-        <DataTemplate x:DataType="vis:FitsRenderer" DataType="vis:FitsRenderer">
-            <Border BorderBrush="#333333" BorderThickness="1" Background="Black" ClipToBounds="True">
-                <Image Source="{Binding Image}" Stretch="Uniform" />
-            </Border>
-        </DataTemplate>
-    </Window.DataTemplates>
 
     <Window.Styles>
         <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
@@ -39,34 +30,30 @@
 
             <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="10">
-                    <StackPanel Spacing="10">
-                        <Grid ColumnDefinitions="*, 10, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="{Binding [ParamMinAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
-                                <NumericUpDown Name="MinValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
-                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="{Binding [ParamMaxAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
-                                <NumericUpDown Name="MaxValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
-                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                        </Grid>
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding [ParamMinAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="MinValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding [ParamMaxAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="MaxValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
 
-                        <Grid ColumnDefinitions="*, 10, *">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="{Binding [ParamStepBin], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
-                                <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" 
-                                               ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,0,4">
-                                <CheckBox Content="{Binding [ParamMonochromatic], Source={x:Static infrastructure:LocalizationManager.Instance}}" IsChecked="{Binding IsMonochromatic}" Foreground="#E0E0E0" FontSize="12"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock Text="{Binding [ParamStepBin], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 
+            <!-- TABELLA DATI CSV -->
             <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
                 <Grid>
                     <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
@@ -77,43 +64,33 @@
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
 
-                    <TabControl SelectedIndex="{Binding SelectedTabIndex}" 
-                                IsVisible="{Binding HasCalculatedProfile}"
-                                Background="Transparent" BorderThickness="0" Padding="0">
-                        <TabItem Header="{Binding [TabGraph], Source={x:Static infrastructure:LocalizationManager.Instance}}">
-                            <Border Margin="8" Background="White" BorderBrush="#333333" BorderThickness="1" ClipToBounds="True" CornerRadius="4">
-                                <Image Source="{Binding OverlayImage}" Stretch="Uniform" />
-                            </Border>
-                        </TabItem>
-                        <TabItem Header="{Binding [TabTable], Source={x:Static infrastructure:LocalizationManager.Instance}}">
-                            <Grid RowDefinitions="Auto, *">
-                                <Grid Grid.Row="0" ColumnDefinitions="*, *" Margin="8,8,8,8">
-                                    <TextBlock Grid.Column="0" Text="{Binding [ColIsoLevel], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding [ColArea], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl ItemsSource="{Binding Isophotes}" Margin="4,0">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="models:EllipticalIsophoteDataPoint" DataType="models:EllipticalIsophoteDataPoint">
-                                                <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="4,6">
-                                                    <Grid ColumnDefinitions="*, *">
-                                                        <TextBlock Grid.Column="0" Text="{Binding MeanValue, StringFormat={}{0:F2}}" FontSize="12" Foreground="#4CC2FF"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding PixelCount}" FontSize="12" Foreground="#E0E0E0" HorizontalAlignment="Right"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Grid>
-                        </TabItem>
-                    </TabControl>
+                    <Grid IsVisible="{Binding HasCalculatedProfile}" RowDefinitions="Auto, *">
+                        <Grid Grid.Row="0" ColumnDefinitions="*, *, *" Margin="16,8,16,8">
+                            <TextBlock Grid.Column="0" Text="sma" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                            <TextBlock Grid.Column="1" Text="x" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="y" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                        </Grid>
+                        
+                        <ListBox Grid.Row="1" ItemsSource="{Binding CsvPreviewRows}" Background="Transparent" BorderThickness="0" Margin="4,0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IsophoteCsvRow">
+                                    <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="12,6">
+                                        <Grid ColumnDefinitions="*, *, *">
+                                            <TextBlock Grid.Column="0" Text="{Binding Sma, StringFormat={}{0:F2}}" FontSize="12" Foreground="#4CC2FF"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding X, StringFormat={}{0:F2}}" FontSize="12" Foreground="#E0E0E0" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Y, StringFormat={}{0:F2}}" FontSize="12" Foreground="#FFB74D" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
                 </Grid>
             </Border>
 
             <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*, 10, *">
                 <Button Grid.Column="0" Command="{Binding ExportDataCommand}" 
-                        Content="{Binding ExportButtonText}" 
+                        Content="Export CSV" 
                         IsEnabled="{Binding HasCalculatedProfile}"
                         HorizontalAlignment="Stretch" 
                         HorizontalContentAlignment="Center"/>
@@ -131,9 +108,25 @@
 
         <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
             
-            <Border Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+            <Border Name="PreviewBorder" Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True"
+                    PointerPressed="OnPreviewPointerPressed" 
+                    PointerReleased="OnPreviewPointerReleased" 
+                    PointerMoved="OnPreviewPointerMoved" 
+                    PointerWheelChanged="OnPreviewPointerWheelChanged"
+                    SizeChanged="OnPreviewSizeChanged">
                 <Grid x:Name="ImageContainerGrid" Background="Transparent" ClipToBounds="True">
-                    <ContentControl Content="{Binding PreviewRenderer}" />
+                    
+                    <Canvas Name="ViewportCanvas" RenderTransformOrigin="0,0">
+                        <Canvas.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform ScaleX="{Binding Viewport.Scale}" ScaleY="{Binding Viewport.Scale}"/>
+                                <TranslateTransform X="{Binding Viewport.OffsetX}" Y="{Binding Viewport.OffsetY}"/>
+                            </TransformGroup>
+                        </Canvas.RenderTransform>
+
+                        <Image Source="{Binding PreviewRenderer.Image}" Stretch="None" RenderOptions.BitmapInterpolationMode="None"/>
+                        <Image Source="{Binding OverlayImage}" Stretch="None" RenderOptions.BitmapInterpolationMode="None" IsHitTestVisible="False" />
+                    </Canvas>
 
                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
                                 HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
@@ -147,6 +140,14 @@
                         <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="{Binding [TooltipNextImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                             <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
                         </Button>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" ZIndex="1" PointerPressed="OnControlsPointerPressed">
+                        <Button Click="OnZoomOutClicked" ToolTip.Tip="Zoom Out"><avalonia:MaterialIcon Kind="Minus" Width="16" Height="16"/></Button>
+                        <Button Click="OnZoomInClicked" ToolTip.Tip="Zoom In"><avalonia:MaterialIcon Kind="Plus" Width="16" Height="16"/></Button>
+                        <Button Command="{Binding ResetViewCommand}" ToolTip.Tip="Fit to Screen"><avalonia:MaterialIcon Kind="FitToScreen" Width="16" Height="16"/></Button>
+                        <Path Data="M0,0 V18" Stroke="#666666" StrokeThickness="1" Margin="8,4,8,4" VerticalAlignment="Center" />
+                        <Button Command="{Binding ResetThresholdsCommand}" ToolTip.Tip="Auto Stretch"><avalonia:MaterialIcon Kind="Contrast" Width="16" Height="16"/></Button>
                     </StackPanel>
 
                     <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">

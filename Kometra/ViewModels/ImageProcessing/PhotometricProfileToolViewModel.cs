@@ -56,6 +56,7 @@ public partial class PhotometricProfileToolViewModel : ObservableObject, IDispos
 
     [ObservableProperty] private string _infoDistance = "---";
     [ObservableProperty] private string _infoPeak = "---";
+    [ObservableProperty] private string _infoAngle = "---";
     [ObservableProperty] private string _statusMessage = "...";
     [ObservableProperty] private bool _isLoading;
     
@@ -197,11 +198,38 @@ public partial class PhotometricProfileToolViewModel : ObservableObject, IDispos
 
                 HasCalculatedProfile = ProfileData.Count > 0;
                 
+                double dx = EndX - StartX;
+                double dy = EndY - StartY;
+                
+                // 1. Teorema di Pitagora per la distanza geometrica reale (risolve il problema dei 372 vs 400.2)
+                double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                // 2. Calcolo angolo ac rispetto alla linea orizzontale (come richiesto dal prof. es: 22.0°)
+                double angleDeg = 0;
+                if (Math.Abs(dx) > 0)
+                {
+                    angleDeg = Math.Atan(Math.Abs(dy / dx)) * (180.0 / Math.PI);
+                }
+                else
+                {
+                    angleDeg = 90.0;
+                }
+                
                 string distLabel = LocalizationManager.Instance["ColDistance"] ?? "Distance";
                 string peakLabel = LocalizationManager.Instance["ColValue"] ?? "Value";
                 
-                InfoDistance = $"{distLabel}: {points.Count} px";
+                // Fallback intelligente: se la chiave non c'è nel file .resx, usa la lingua di sistema
+                string angleLabel = LocalizationManager.Instance["ColInclination"];
+                if (string.IsNullOrEmpty(angleLabel) || angleLabel.Contains("#ColInclination#"))
+                {
+                    bool isItalian = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("it", StringComparison.OrdinalIgnoreCase);
+                    angleLabel = isItalian ? "Inclinazione" : "Inclination";
+                }
+                
+                InfoDistance = $"{distLabel}: {distance:F1} px";
                 InfoPeak = $"Max {peakLabel}: {(maxAdu == double.MinValue ? 0 : maxAdu):F1} ADU";
+                InfoAngle = $"{angleLabel}: {angleDeg:F1}°";
+                
                 StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Done.";
             });
         }

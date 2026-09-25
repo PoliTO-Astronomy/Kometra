@@ -22,6 +22,12 @@
              PointerWheelChanged="OnPointerWheelChanged"
              SizeChanged="OnBoardSizeChanged">
 
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Statistiche FITS..." Command="{Binding ShowFitsStatisticsWindowCommand}" />
+        </ContextMenu>
+    </UserControl.ContextMenu>
+
     <UserControl.KeyBindings>
         <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
         <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />

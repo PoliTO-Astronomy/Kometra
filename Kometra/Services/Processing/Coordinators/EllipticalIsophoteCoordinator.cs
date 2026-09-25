@@ -32,8 +32,11 @@ public class EllipticalIsophoteCoordinator : IEllipticalIsophoteCoordinator
 
             using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
             using Mat floatMat = new Mat();
+            
             if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
             else srcMat.CopyTo(floatMat);
+
+            Cv2.PatchNaNs(floatMat, 0.0);
 
             cancellationToken.ThrowIfCancellationRequested();
             return _engine.CalculateIsophotes(floatMat, parameters);

@@ -69,9 +69,21 @@
                     </StackPanel>
 
                     <Border Background="#161616" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding InfoDistance}" Foreground="#4CC2FF" FontSize="12" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding InfoPeak}" Foreground="White" FontSize="12"/>
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <avalonia:MaterialIcon Kind="Ruler" Width="16" Height="16" Foreground="#4CC2FF"/>
+                                <TextBlock Text="{Binding InfoDistance}" Foreground="#4CC2FF" FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <avalonia:MaterialIcon Kind="TrendingUp" Width="16" Height="16" Foreground="#E0E0E0"/>
+                                <TextBlock Text="{Binding InfoPeak}" Foreground="#E0E0E0" FontSize="13" FontWeight="Medium"/>
+                            </StackPanel>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <avalonia:MaterialIcon Kind="AngleAcute" Width="16" Height="16" Foreground="#FFB74D"/>
+                                <TextBlock Text="{Binding InfoAngle}" Foreground="#FFB74D" FontSize="13" FontWeight="Medium"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>

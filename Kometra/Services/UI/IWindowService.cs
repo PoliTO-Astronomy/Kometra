@@ -37,4 +37,5 @@ public interface IWindowService
     Task<List<string>?> ShowEllipticalIsophoteWindowAsync(List<FitsFileReference> files);Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowRadialEnhancementWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowStructureExtractionWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
     Task<(List<string> Paths, ImageEnhancementMode Mode)?> ShowLocalContrastWindowAsync(List<FitsFileReference> sourceFiles, VisualizationMode initialMode);
+    Task ShowFitsStatisticsWindowAsync(List<FitsFileReference> files, Kometra.Services.Fits.IFitsDataManager dataManager);
 }

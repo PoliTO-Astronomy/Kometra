@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -26,6 +25,13 @@ using SequenceNavigator = Kometra.ViewModels.Shared.SequenceNavigator;
 
 namespace Kometra.ViewModels.ImageProcessing;
 
+public class IsophoteCsvRow
+{
+    public double Sma { get; set; }
+    public double X { get; set; }
+    public double Y { get; set; }
+}
+
 public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDisposable
 {
     private readonly IEllipticalIsophoteCoordinator _coordinator;
@@ -34,13 +40,16 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     private readonly IWindowService _windowService;
     private readonly List<FitsFileReference> _sourceFiles;
     private CancellationTokenSource? _cts;
+    private bool _isInitialized;
 
     public event Action? RequestClose;
 
-    public bool DialogResult { get; private set; } = false;
-    public List<string> ResultPaths { get; private set; } = new();
+    public bool DialogResult { get; private set; }
+    public List<string>? ResultPaths { get; private set; }
 
     public SequenceNavigator Navigator { get; } = new();
+    public AlignmentImageViewport Viewport { get; } = new();
+    
     public bool HasMultipleImages => _sourceFiles.Count > 1;
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_sourceFiles.Count}";
 
@@ -50,21 +59,14 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     [ObservableProperty] private double _minValue = 1.0;
     [ObservableProperty] private double _maxValue = 65535.0;
     [ObservableProperty] private double _stepSize = 100.0;
-    [ObservableProperty] private bool _isMonochromatic = false;
 
     [ObservableProperty] private FitsRenderer? _previewRenderer;
     [ObservableProperty] private bool _hasCalculatedProfile = false;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ExportButtonText))]
-    private int _selectedTabIndex = 0;
-
-    public string ExportButtonText => $"{LocalizationManager.Instance["ExportExecute"]} {(SelectedTabIndex == 0 ? "PNG" : "CSV")}";
-
     [ObservableProperty] private Bitmap? _overlayImage;
 
-    private readonly Dictionary<int, (Bitmap Overlay, List<EllipticalIsophoteDataPoint> Points)> _previewCache = new();
-    public ObservableCollection<EllipticalIsophoteDataPoint> Isophotes { get; } = new();
+    private readonly List<IsophoteCsvRow> _fullCsvData = new();
+    [ObservableProperty] private ObservableCollection<IsophoteCsvRow> _csvPreviewRows = new();
 
     public EllipticalIsophoteToolViewModel(
         List<FitsFileReference> sourceFiles,
@@ -87,22 +89,8 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         _ = InitializeAsync();
     }
 
-    private string GetSelectionColorHex()
-    {
-        if (Application.Current != null)
-        {
-            if (Application.Current.TryGetResource("SelectionColor", out var res) || 
-                Application.Current.TryGetResource("SystemAccentColor", out res))
-            {
-                if (res is Avalonia.Media.Color c) return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-                if (res is Avalonia.Media.SolidColorBrush b) return $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}";
-            }
-        }
-        return "#8058E8";
-    }
-
-    partial void OnIsMonochromaticChanged(bool value) => _ = CalculatePreviewAsync();
-
+    [RelayCommand] private void ResetView() => Viewport.ResetView();
+    [RelayCommand] private async Task ResetThresholds() { if (PreviewRenderer != null) await PreviewRenderer.ResetThresholdsAsync(); }
     public void TriggerCalculation() => _ = CalculatePreviewAsync();
 
     private async void OnNavigatorIndexChanged(object? sender, int index)
@@ -114,45 +102,89 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
     private EllipticalIsophoteParameters GetCurrentParameters() => new()
     {
         MinValue = MinValue, MaxValue = MaxValue, StepSize = StepSize, 
-        IsMonochromatic = IsMonochromatic,
-        MonoColorHex = GetSelectionColorHex()
+        IsMonochromatic = false,
+        MonoColorHex = "#FFFFFF" 
     };
+
+    private (double bscale, double bzero) GetBScaleBZero(object headerObj)
+    {
+        double bscale = 1.0;
+        double bzero = 0.0;
+        try 
+        {
+            dynamic dynHeader = headerObj;
+            System.Collections.IEnumerable? cardsEnum = null;
+            var cardsProp = dynHeader.GetType().GetProperty("Cards") ?? dynHeader.GetType().GetProperty("Records");
+            
+            if (cardsProp != null) cardsEnum = cardsProp.GetValue(dynHeader) as System.Collections.IEnumerable;
+
+            if (cardsEnum != null)
+            {
+                foreach (var card in cardsEnum)
+                {
+                    var keyProp = card.GetType().GetProperty("Key");
+                    var valProp = card.GetType().GetProperty("Value");
+                    string key = keyProp?.GetValue(card)?.ToString()?.ToUpper() ?? "";
+                    string val = valProp?.GetValue(card)?.ToString() ?? "";
+                    if (key == "BSCALE") double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out bscale);
+                    if (key == "BZERO") double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out bzero);
+                }
+            }
+        } 
+        catch { }
+        return (bscale, bzero);
+    }
+
+    private Bitmap? RawMaskToOverlayBitmapSafe(Mat maskMat)
+    {
+        if (maskMat.Empty()) return null;
+
+        int height = maskMat.Rows;
+        int width = maskMat.Cols;
+
+        var bitmap = new WriteableBitmap(
+            new PixelSize(width, height), 
+            new Vector(96, 96), 
+            Avalonia.Platform.PixelFormat.Bgra8888, 
+            Avalonia.Platform.AlphaFormat.Unpremul);
+
+        byte[] bytes = new byte[width * height];
+        System.Runtime.InteropServices.Marshal.Copy(maskMat.Data, bytes, 0, bytes.Length);
+
+        using (var frameBuffer = bitmap.Lock())
+        {
+            IntPtr backBuffer = frameBuffer.Address;
+            int rowBytes = frameBuffer.RowBytes;
+
+            Parallel.For(0, height, y =>
+            {
+                int[] rowBuffer = new int[width];
+                int offset = y * width;
+                for (int x = 0; x < width; x++)
+                {
+                    byte intensity = bytes[offset + x];
+                    if (intensity > 0)
+                    {
+                        rowBuffer[x] = (255 << 24) | (intensity << 16) | (intensity << 8) | intensity;
+                    }
+                    else
+                    {
+                        rowBuffer[x] = 0;
+                    }
+                }
+            
+                IntPtr destPtr = IntPtr.Add(backBuffer, y * rowBytes);
+                System.Runtime.InteropServices.Marshal.Copy(rowBuffer, 0, destPtr, width);
+            });
+        }
+
+        return bitmap;
+    }
 
     private async Task InitializeAsync()
     {
         if (_sourceFiles.Count == 0) return;
-        var currentFile = _sourceFiles[Navigator.CurrentIndex];
-
-        IsLoading = true;
-        try
-        {
-            var dataPackage = await _dataManager.LoadDataPackageAsync(currentFile.FilePath);
-            var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
-
-            if (hdu?.PixelData != null && hdu.Header != null)
-            {
-                using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                Cv2.MinMaxLoc(srcMat, out double minVal, out double maxVal);
-                
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    MaxValue = Math.Round(maxVal, 1);
-                    MinValue = Math.Max(1.0, Math.Round(minVal, 1));
-                    StepSize = Math.Max(1.0, Math.Round((MaxValue - MinValue) / 50.0, 0));
-                });
-
-                var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
-                await renderer.InitializeAsync();
-                PreviewRenderer = renderer; 
-                
-                _ = CalculatePreviewAsync();
-            }
-        }
-        catch (Exception ex) 
-        { 
-            StatusMessage = string.Format(LocalizationManager.Instance["ErrorInit"] ?? "Error: {0}", ex.Message); 
-        }
-        finally { IsLoading = false; }
+        await LoadFrameAtIndexAsync(Navigator.CurrentIndex);
     }
 
     private async Task CalculatePreviewAsync()
@@ -164,79 +196,124 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
-        _previewCache.Clear();
+        var token = _cts.Token;
 
         try
         {
             int frameIdx = Navigator.CurrentIndex;
             var file = _sourceFiles[frameIdx];
 
-            using var result = await _coordinator.AnalyzeProfileAsync(file, GetCurrentParameters(), _cts.Token);
-            if (_cts.Token.IsCancellationRequested || result.OverlayImage == null) return;
+            _fullCsvData.Clear();
+            var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
+            var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
+            
+            if (token.IsCancellationRequested) return;
 
-            var bmpOverlay = CreateAvaloniaBitmap(result.OverlayImage);
-            var pts = new List<EllipticalIsophoteDataPoint>(result.Isophotes);
-
-            lock (_previewCache) { _previewCache[frameIdx] = (bmpOverlay, pts); }
-
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            if (hdu?.PixelData != null && hdu.Header != null)
             {
-                HasCalculatedProfile = true;
-                OverlayImage = bmpOverlay;
-                Isophotes.Clear();
-                foreach(var pt in pts) Isophotes.Add(pt);
-                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Done.";
-            });
+                using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
+                using Mat floatMat = new Mat();
+                if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
+                else srcMat.CopyTo(floatMat);
+
+                Cv2.PatchNaNs(floatMat, 0.0);
+                var (bscale, bzero) = GetBScaleBZero(hdu.Header);
+                var param = GetCurrentParameters();
+
+                using Mat allContoursMask = new Mat(floatMat.Rows, floatMat.Cols, MatType.CV_8UC1, new Scalar(0));
+                
+                double range = param.MaxValue - param.MinValue;
+                if (range <= 0) range = 1;
+
+                for (double level = param.MinValue; level <= param.MaxValue; level += param.StepSize)
+                {
+                    if (token.IsCancellationRequested) return;
+
+                    double unscaledLevel = (level - bzero) / bscale;
+                    using Mat mask32 = new Mat();
+                    using Mat mask = new Mat();
+                    
+                    Cv2.Threshold(floatMat, mask32, unscaledLevel, 255.0, ThresholdTypes.Binary);
+                    mask32.ConvertTo(mask, MatType.CV_8UC1);
+                    Cv2.FindContours(mask, out OpenCvSharp.Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxNone);
+                    
+                    byte intensity = (byte)Math.Clamp(255 * (level - param.MinValue) / range, 80, 255);
+                    Cv2.DrawContours(allContoursMask, contours, -1, new Scalar(intensity), 1);
+
+                    foreach (var contour in contours)
+                    {
+                        if (contour.Length >= 5)
+                        {
+                            var ellipse = Cv2.FitEllipse(contour);
+                            double sma = Math.Max(ellipse.Size.Width, ellipse.Size.Height) / 2.0;
+                            foreach (var pt in contour)
+                            {
+                                _fullCsvData.Add(new IsophoteCsvRow { Sma = sma, X = pt.X, Y = pt.Y });
+                            }
+                        }
+                    }
+                }
+
+                if (token.IsCancellationRequested) return;
+
+                var overlayBmp = RawMaskToOverlayBitmapSafe(allContoursMask);
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    OverlayImage = overlayBmp;
+                    CsvPreviewRows = new ObservableCollection<IsophoteCsvRow>(_fullCsvData);
+
+                    HasCalculatedProfile = true;
+                    StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Done.";
+                });
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) 
         { 
             StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
         }
-        finally { IsLoading = false; }
+        finally 
+        { 
+            if (!(_cts?.Token.IsCancellationRequested ?? false)) IsLoading = false; 
+        }
     }
 
     [RelayCommand]
     private async Task ExportDataAsync()
     {
-        if (Isophotes.Count == 0) return;
+        if (_fullCsvData.Count == 0) return;
 
-        if (SelectedTabIndex == 0) 
+        try
         {
-            try
-            {
-                if (OverlayImage == null) return;
-                string? destPath = await _windowService.ShowSaveFileDialogAsync("PNG", "isophotes_overlay.png");
-                if (string.IsNullOrWhiteSpace(destPath)) return;
+            string? destPath = await _windowService.ShowSaveFileDialogAsync("CSV", "isophotes_sma_x_y.csv");
+            if (string.IsNullOrWhiteSpace(destPath)) return;
 
-                OverlayImage.Save(destPath);
-                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Export completed.";
-            }
-            catch (Exception ex) 
-            { 
-                StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
-            }
-        }
-        else 
-        {
-            try
+            var sb = new StringBuilder();
+            sb.AppendLine("sma,x,y");
+            foreach (var pt in _fullCsvData)
             {
-                string? destPath = await _windowService.ShowSaveFileDialogAsync("CSV", "isophotes_data.csv");
-                if (string.IsNullOrWhiteSpace(destPath)) return;
-
-                var sb = new StringBuilder();
-                sb.AppendLine("Livello (ADU),Area (px)");
-                foreach (var pt in Isophotes)
-                    sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:F2},{1}", pt.MeanValue, pt.PixelCount));
-                
-                await File.WriteAllTextAsync(destPath, sb.ToString(), Encoding.UTF8);
-                StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Export completed.";
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:F2},{1:F2},{2:F2}", pt.Sma, pt.X, pt.Y));
             }
-            catch (Exception ex) 
-            { 
-                StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
-            }
+            
+            await File.WriteAllTextAsync(destPath, sb.ToString(), Encoding.UTF8);
+            StatusMessage = LocalizationManager.Instance["StatusDone"] ?? "Export completed.";
         }
+        catch (Exception ex) 
+        { 
+            StatusMessage = string.Format(LocalizationManager.Instance["ErrorGeneric"] ?? "Error: {0}", ex.Message); 
+        }
+    }
+
+    private async Task<string> SaveIsophoteHduAsync(Kometra.Models.Fits.Structure.FitsHeader header, float[,] pixelData)
+    {
+        header.AddOrUpdateCard("BITPIX", "-32", "IEEE single precision floating point");
+        header.AddOrUpdateCard("BZERO", "0.0", "Offset");
+        header.AddOrUpdateCard("BSCALE", "1.0", "Scale");
+
+        var fileRef = await _dataManager.SaveAsTemporaryAsync(pixelData, header, "TopologicalIsophotes");
+        return fileRef.FilePath;
     }
 
     [RelayCommand]
@@ -249,41 +326,83 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
 
         try
         {
-            string outputDir = Path.Combine(Path.GetTempPath(), "Kometra", "TopologicalIsophotes");
-            Directory.CreateDirectory(outputDir);
-
-            string baseId = Guid.NewGuid().ToString("N");
-            string csvPath = Path.Combine(outputDir, $"Isophotes_{baseId}.csv");
-
-            var sb = new StringBuilder();
-            sb.AppendLine("Livello (ADU),Area (px)");
-            foreach (var pt in Isophotes)
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0:F2},{1}", pt.MeanValue, pt.PixelCount));
-            await File.WriteAllTextAsync(csvPath, sb.ToString(), Encoding.UTF8);
-
-            var pngPaths = new List<string>();
             var parameters = GetCurrentParameters();
+            var newPaths = new List<string>();
 
             for (int frameIdx = 0; frameIdx < _sourceFiles.Count; frameIdx++)
             {
                 var file = _sourceFiles[frameIdx];
-                string pngPath = Path.Combine(outputDir, $"Isophotes_{frameIdx}_{Guid.NewGuid():N}.png");
 
-                using var result = await _coordinator.AnalyzeProfileAsync(file, parameters, _cts.Token);
-                if (result.OverlayImage == null) continue;
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                var dataPackage = await _dataManager.LoadDataPackageAsync(file.FilePath);
+                var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
+                if (hdu?.PixelData != null && hdu.Header != null)
                 {
-                    using var bmp = CreateAvaloniaBitmap(result.OverlayImage);
-                    bmp.Save(pngPath);
-                });
+                    using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
+                    using Mat floatMat = new Mat();
+                    if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
+                    else srcMat.CopyTo(floatMat);
 
-                if (File.Exists(pngPath)) pngPaths.Add(pngPath);
+                    Cv2.PatchNaNs(floatMat, 0.0);
+                    var (bscale, bzero) = GetBScaleBZero(hdu.Header);
+
+                    using Mat allContoursMask = new Mat(floatMat.Rows, floatMat.Cols, MatType.CV_8UC1, new Scalar(0));
+
+                    for (double level = parameters.MinValue; level <= parameters.MaxValue; level += parameters.StepSize)
+                    {
+                        double unscaledLevel = (level - bzero) / bscale;
+                        using Mat mask32 = new Mat();
+                        using Mat mask = new Mat();
+                        
+                        Cv2.Threshold(floatMat, mask32, unscaledLevel, 255.0, ThresholdTypes.Binary);
+                        mask32.ConvertTo(mask, MatType.CV_8UC1);
+                        Cv2.FindContours(mask, out OpenCvSharp.Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxNone);
+                        Cv2.DrawContours(allContoursMask, contours, -1, new Scalar(255), 1);
+                    }
+
+                    float[] originalPixels = new float[floatMat.Rows * floatMat.Cols];
+                    byte[] maskPixels = new byte[allContoursMask.Rows * allContoursMask.Cols];
+                    float[,] outputPixels2D = new float[floatMat.Rows, floatMat.Cols];
+
+                    System.Runtime.InteropServices.Marshal.Copy(floatMat.Data, originalPixels, 0, originalPixels.Length);
+                    System.Runtime.InteropServices.Marshal.Copy(allContoursMask.Data, maskPixels, 0, maskPixels.Length);
+
+                    double finalMin = double.MaxValue;
+                    double finalMax = double.MinValue;
+
+                    int idx = 0;
+                    for (int y = 0; y < floatMat.Rows; y++)
+                    {
+                        for (int x = 0; x < floatMat.Cols; x++)
+                        {
+                            if (maskPixels[idx] > 0)
+                            {
+                                float scaledVal = (float)((originalPixels[idx] * bscale) + bzero);
+                                outputPixels2D[y, x] = scaledVal;
+                                if (scaledVal < finalMin) finalMin = scaledVal;
+                                if (scaledVal > finalMax) finalMax = scaledVal;
+                            }
+                            else
+                            {
+                                outputPixels2D[y, x] = 0f;
+                                if (0f < finalMin) finalMin = 0f;
+                                if (0f > finalMax) finalMax = 0f;
+                            }
+                            idx++;
+                        }
+                    }
+
+                    if (finalMin == double.MaxValue) finalMin = 0;
+                    if (finalMax == double.MinValue) finalMax = 1;
+
+                    hdu.Header.AddOrUpdateCard("DATAMIN", finalMin.ToString("0.0", CultureInfo.InvariantCulture), "Minimum data value");
+                    hdu.Header.AddOrUpdateCard("DATAMAX", finalMax.ToString("0.0", CultureInfo.InvariantCulture), "Maximum data value");
+
+                    string savedPath = await SaveIsophoteHduAsync(hdu.Header, outputPixels2D);
+                    if (File.Exists(savedPath)) newPaths.Add(savedPath);
+                }
             }
 
-            ResultPaths = pngPaths;
-            ResultPaths.Add(csvPath);
-
+            ResultPaths = newPaths;
             DialogResult = true;
             RequestClose?.Invoke();
         }
@@ -313,25 +432,42 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
             var hdu = dataPackage?.FirstImageHdu ?? dataPackage?.PrimaryHdu;
             if (hdu?.PixelData != null && hdu.Header != null)
             {
+                if (!_isInitialized)
+                {
+                    using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
+                    using Mat floatMat = new Mat();
+                    if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
+                    else srcMat.CopyTo(floatMat);
+
+                    Cv2.PatchNaNs(floatMat, 0.0);
+                    Cv2.MinMaxLoc(floatMat, out double rawMin, out double rawMax);
+                    var (bscale, bzero) = GetBScaleBZero(hdu.Header);
+
+                    double minVal = (rawMin * bscale) + bzero;
+                    double maxVal = (rawMax * bscale) + bzero;
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        MaxValue = Math.Round(maxVal, 1);
+                        MinValue = Math.Max(1.0, Math.Round(minVal, 1));
+                        StepSize = Math.Max(1.0, Math.Round((MaxValue - MinValue) / 50.0, 0));
+                    });
+
+                    _isInitialized = true;
+                }
+
                 var renderer = await _rendererFactory.CreateAsync(hdu.PixelData, hdu.Header);
                 await renderer.InitializeAsync();
                 
-                PreviewRenderer?.Dispose();
-                PreviewRenderer = renderer; 
-            }
-
-            if (HasCalculatedProfile)
-            {
-                lock (_previewCache)
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (_previewCache.TryGetValue(index, out var cacheItem))
-                    {
-                        OverlayImage = cacheItem.Overlay;
-                        Isophotes.Clear();
-                        foreach (var pt in cacheItem.Points) Isophotes.Add(pt);
-                    }
-                    else _ = CalculatePreviewAsync(); 
-                }
+                    PreviewRenderer?.Dispose();
+                    PreviewRenderer = renderer; 
+                    Viewport.ImageSize = PreviewRenderer.ImageSize;
+                    Viewport.ResetView();
+                });
+
+                _ = CalculatePreviewAsync();
             }
         }
         catch (Exception ex) 
@@ -340,28 +476,11 @@ public partial class EllipticalIsophoteToolViewModel : ObservableObject, IDispos
         }
     }
 
-    private Bitmap CreateAvaloniaBitmap(Mat bgraMat)
-    {
-        var bmp = new WriteableBitmap(
-            new PixelSize(bgraMat.Cols, bgraMat.Rows),
-            new Vector(96, 96),
-            PixelFormats.Bgra8888,
-            AlphaFormat.Unpremul);
-
-        using (var locked = bmp.Lock())
-        {
-            using var dstMat = Mat.FromPixelData(bgraMat.Rows, bgraMat.Cols, MatType.CV_8UC4, locked.Address, locked.RowBytes);
-            bgraMat.CopyTo(dstMat);
-        }
-        return bmp;
-    }
-
     public void Dispose()
     {
         Navigator.IndexChanged -= OnNavigatorIndexChanged;
         _cts?.Dispose();
         OverlayImage?.Dispose();
-        foreach (var item in _previewCache.Values) item.Overlay?.Dispose();
-        _previewCache.Clear();
+        PreviewRenderer?.Dispose();
     }
 }

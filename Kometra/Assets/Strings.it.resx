@@ -658,4 +658,5 @@
     <data name="ColIsoLevel" xml:space="preserve"><value>Livello Isofota (ADU)</value></data>
     <data name="ColArea" xml:space="preserve"><value>Area Racchiusa (px²)</value></data>
     <data name="BtnConfirmNode" xml:space="preserve"><value>Conferma Nodo</value></data>
+     <data name="ColInclination" xml:space="preserve"><value>Inclinazione</value></data>
 </root>

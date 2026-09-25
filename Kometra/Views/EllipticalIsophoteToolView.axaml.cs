@@ -15,10 +15,13 @@ namespace Kometra.Views;
 public partial class EllipticalIsophoteToolView : Window
 {
     private EllipticalIsophoteToolViewModel? _vm;
+    private bool _isPanning;
+    private Point? _lastPointerPosForPanning;
 
     public EllipticalIsophoteToolView()
     {
         InitializeComponent();
+        this.AddHandler(PointerPressedEvent, OnWindowPointerPressed_Global, RoutingStrategies.Tunnel, handledEventsToo: true);
         this.Loaded += OnWindowLoaded;
         this.Unloaded += OnWindowUnloaded;
     }
@@ -34,7 +37,12 @@ public partial class EllipticalIsophoteToolView : Window
         {
             _vm = vm;
             _vm.PropertyChanged += OnViewModelPropertyChanged;
+            
+            // FIX: Tornati all'aggancio pulito e identico allo StarMaskingView
+            _vm.RequestClose += Close; 
+            
             UpdateUiValues();
+            CenterImage();
         }
     }
 
@@ -43,9 +51,105 @@ public partial class EllipticalIsophoteToolView : Window
         if (_vm != null)
         {
             _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            _vm.RequestClose -= Close;
+            _vm.Dispose();
             _vm = null;
         }
     }
+
+    private void CenterImage()
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (_vm != null && previewBorder != null && previewBorder.Bounds.Width > 0)
+        {
+            _vm.Viewport.ViewportSize = previewBorder.Bounds.Size;
+            if (_vm.Viewport.ImageSize.Width > 0) _vm.Viewport.ResetView();
+        }
+    }
+
+    private void OnPreviewSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (_vm != null) _vm.Viewport.ViewportSize = e.NewSize;
+    }
+
+    private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (previewBorder == null) return;
+
+        var props = e.GetCurrentPoint(previewBorder).Properties;
+        bool isMiddlePan = props.IsMiddleButtonPressed;
+        bool isAltPan = props.IsLeftButtonPressed && e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+
+        if (isMiddlePan || isAltPan)
+        {
+            _lastPointerPosForPanning = e.GetPosition(previewBorder);
+            _isPanning = true;
+            e.Pointer.Capture(previewBorder);
+            this.Cursor = new Cursor(StandardCursorType.SizeAll);
+        }
+    }
+
+    private void OnPreviewPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_isPanning)
+        {
+            _isPanning = false;
+            _lastPointerPosForPanning = null;
+            e.Pointer.Capture(null);
+            this.Cursor = Cursor.Default;
+        }
+    }
+
+    private void OnPreviewPointerMoved(object? sender, PointerEventArgs e)
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (!_isPanning || _vm == null || previewBorder == null || _lastPointerPosForPanning == null) return;
+
+        var props = e.GetCurrentPoint(previewBorder).Properties;
+        if (!props.IsMiddleButtonPressed && !props.IsLeftButtonPressed)
+        {
+            _isPanning = false;
+            _lastPointerPosForPanning = null;
+            e.Pointer.Capture(null);
+            this.Cursor = Cursor.Default;
+            return;
+        }
+
+        var currentPos = e.GetPosition(previewBorder);
+        var delta = currentPos - _lastPointerPosForPanning.Value;
+        _lastPointerPosForPanning = currentPos;
+        _vm.Viewport.ApplyPan(delta.X, delta.Y);
+    }
+
+    private void OnPreviewPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (_vm == null || previewBorder == null) return;
+        
+        double effectiveDelta = Math.Abs(e.Delta.Y) > Math.Abs(e.Delta.X) ? e.Delta.Y : e.Delta.X;
+        if (Math.Abs(effectiveDelta) < 0.0001) return;
+
+        var mousePos = e.GetPosition(previewBorder);
+        double factor = effectiveDelta > 0 ? 1.1 : (1.0 / 1.1);
+        _vm.Viewport.ApplyZoomAtPoint(factor, mousePos);
+        e.Handled = true;
+    }
+
+    private void OnZoomInClicked(object? sender, RoutedEventArgs e)
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (_vm != null && previewBorder != null) _vm.Viewport.ApplyZoomAtPoint(1.2, previewBorder.Bounds.Center);
+    }
+
+    private void OnZoomOutClicked(object? sender, RoutedEventArgs e)
+    {
+        var previewBorder = this.FindControl<Border>("PreviewBorder");
+        if (_vm != null && previewBorder != null) _vm.Viewport.ApplyZoomAtPoint(1.0 / 1.2, previewBorder.Bounds.Center);
+    }
+
+    private void OnControlsPointerPressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
+    private void OnWindowPointerPressed_Global(object? sender, PointerPressedEventArgs e) => this.Focus();
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

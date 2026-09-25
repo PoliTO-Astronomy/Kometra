@@ -1,0 +1,114 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        xmlns:vm="using:Kometra.ViewModels.Fits"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="340"
+        x:Class="Kometra.Views.FitsStatisticsView"
+        x:DataType="vm:FitsStatisticsViewModel"
+        Title="{Binding WindowTitle}"
+        Width="420" SizeToContent="Height"
+        CanResize="False"
+        Background="#181818"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="Border.rowBorder">
+            <Setter Property="BorderBrush" Value="#2A2A2A"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+        <Style Selector="TextBlock.sLabel">
+            <Setter Property="Foreground" Value="#9E9E9E"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.sValue">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto, Auto" Margin="14">
+        <Border Grid.Row="0" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6">
+            <StackPanel>
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Percorso" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatPath}" ToolTip.Tip="{Binding StatPath}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Dimensione" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatDimension}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Pixel" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatPixel}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Range" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatRange}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Minimo" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatMin}" Classes="sValue" Foreground="#4CC2FF"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Massimo" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatMax}" Classes="sValue" Foreground="#FFB74D"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Background" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatBackground}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Padding="10,6">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="Dev. standard" Classes="sLabel"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatStdDev}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- Barra inferiore per navigazione multi-frame e pulsante Chiudi -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto, *, Auto" Margin="0,12,0,0">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasMultipleImages}">
+                <Button Command="{Binding Navigator.PreviousCommand}">
+                    <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
+                </Button>
+                <Border Background="#252525" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="10,0" VerticalAlignment="Stretch">
+                    <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                </Border>
+                <Button Command="{Binding Navigator.NextCommand}">
+                    <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
+                </Button>
+            </StackPanel>
+
+            <Button Grid.Column="2" Content="Chiudi" Command="{Binding CloseCommand}" Padding="20,6"/>
+        </Grid>
+    </Grid>
+</Window>
