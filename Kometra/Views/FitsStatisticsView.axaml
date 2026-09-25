@@ -4,11 +4,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         xmlns:vm="using:Kometra.ViewModels.Fits"
-        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="340"
+        xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
+        mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="420"
         x:Class="Kometra.Views.FitsStatisticsView"
         x:DataType="vm:FitsStatisticsViewModel"
         Title="{Binding WindowTitle}"
-        Width="420" SizeToContent="Height"
+        Width="460" SizeToContent="Height"
         CanResize="False"
         Background="#181818"
         WindowStartupLocation="CenterOwner">
@@ -24,12 +25,11 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <Style Selector="TextBlock.sValue">
+        <Style Selector="SelectableTextBlock.sValue">
             <Setter Property="Foreground" Value="#E0E0E0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
     </Window.Styles>
 
@@ -38,57 +38,71 @@
             <StackPanel>
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Percorso" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatPath}" ToolTip.Tip="{Binding StatPath}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsPath], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatPath}" ToolTip.Tip="{Binding StatPath}" Classes="sValue" TextWrapping="Wrap"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Dimensione" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatDimension}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsDimension], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatDimension}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Pixel" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatPixel}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsPixels], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatPixel}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Range" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatRange}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsRange], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatRange}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Minimo" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatMin}" Classes="sValue" Foreground="#4CC2FF"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsMin], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatMin}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Massimo" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatMax}" Classes="sValue" Foreground="#FFB74D"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsMax], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatMax}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Classes="rowBorder">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Background" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatBackground}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsBackground], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatBackground}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsStdDev], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatStdDev}" Classes="sValue"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="rowBorder">
+                    <Grid ColumnDefinitions="125, *">
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsMean], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatMean}" Classes="sValue"/>
                     </Grid>
                 </Border>
 
                 <Border Padding="10,6">
                     <Grid ColumnDefinitions="125, *">
-                        <TextBlock Grid.Column="0" Text="Dev. standard" Classes="sLabel"/>
-                        <TextBlock Grid.Column="1" Text="{Binding StatStdDev}" Classes="sValue"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [StatsSum], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sLabel"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding StatSum}" Classes="sValue"/>
                     </Grid>
                 </Border>
             </StackPanel>
@@ -97,18 +111,18 @@
         <!-- Barra inferiore per navigazione multi-frame e pulsante Chiudi -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto, *, Auto" Margin="0,12,0,0">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasMultipleImages}">
-                <Button Command="{Binding Navigator.PreviousCommand}">
+                <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="{Binding [TooltipPrevImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                     <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
                 </Button>
                 <Border Background="#252525" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="10,0" VerticalAlignment="Stretch">
                     <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
                 </Border>
-                <Button Command="{Binding Navigator.NextCommand}">
+                <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="{Binding [TooltipNextImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
                     <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
                 </Button>
             </StackPanel>
 
-            <Button Grid.Column="2" Content="Chiudi" Command="{Binding CloseCommand}" Padding="20,6"/>
+            <Button Grid.Column="2" Content="{Binding [BtnClose], Source={x:Static infrastructure:LocalizationManager.Instance}}" Command="{Binding CloseCommand}" Padding="20,6"/>
         </Grid>
     </Grid>
 </Window>

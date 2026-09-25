@@ -405,18 +405,21 @@ public class WindowService : IWindowService
         return success ? resultSelector(viewModel) : default;
     }
 
-    public async Task ShowFitsStatisticsWindowAsync(List<FitsFileReference> files, Kometra.Services.Fits.IFitsDataManager dataManager)
+    public Task ShowFitsStatisticsWindowAsync(List<FitsFileReference> files, Kometra.Services.Fits.IFitsDataManager dataManager)
     {
         var vm = new Kometra.ViewModels.Fits.FitsStatisticsViewModel(files, dataManager);
         var window = new Kometra.Views.FitsStatisticsView { DataContext = vm };
         
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
         {
-            await window.ShowDialog(desktop.MainWindow);
+            // Show(owner) apre la finestra in modo NON bloccante mantenendola in primo piano rispetto a Kometra
+            window.Show(desktop.MainWindow);
         }
         else
         {
             window.Show();
         }
+
+        return Task.CompletedTask;
     }
 }

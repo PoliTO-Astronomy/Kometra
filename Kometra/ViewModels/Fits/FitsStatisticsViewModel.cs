@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kometra.Infrastructure;
 using Kometra.Models.Fits;
 using Kometra.Services.Fits;
 using OpenCvSharp;
@@ -27,7 +28,7 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
     public string CurrentImageText => $"{Navigator.DisplayIndex} / {_files.Count}";
 
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _windowTitle = "Statistiche FITS";
+    [ObservableProperty] private string _windowTitle = LocalizationManager.Instance["StatsWindowTitle"] ?? "FITS Statistics";
     [ObservableProperty] private string _statPath = "---";
     [ObservableProperty] private string _statDimension = "---";
     [ObservableProperty] private string _statPixel = "---";
@@ -36,6 +37,8 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _statMax = "---";
     [ObservableProperty] private string _statBackground = "---";
     [ObservableProperty] private string _statStdDev = "---";
+    [ObservableProperty] private string _statMean = "---";
+    [ObservableProperty] private string _statSum = "---";
 
     public FitsStatisticsViewModel(List<FitsFileReference> files, IFitsDataManager dataManager)
     {
@@ -54,33 +57,11 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
         await LoadStatisticsAtIndexAsync(index);
     }
 
-    private (double bscale, double bzero) GetBScaleBZero(object headerObj)
+    private static string FormatAdu(double val)
     {
-        double bscale = 1.0;
-        double bzero = 0.0;
-        try
-        {
-            dynamic dynHeader = headerObj;
-            System.Collections.IEnumerable? cardsEnum = null;
-            var cardsProp = dynHeader.GetType().GetProperty("Cards") ?? dynHeader.GetType().GetProperty("Records");
-
-            if (cardsProp != null) cardsEnum = cardsProp.GetValue(dynHeader) as System.Collections.IEnumerable;
-
-            if (cardsEnum != null)
-            {
-                foreach (var card in cardsEnum)
-                {
-                    var keyProp = card.GetType().GetProperty("Key");
-                    var valProp = card.GetType().GetProperty("Value");
-                    string key = keyProp?.GetValue(card)?.ToString()?.ToUpper() ?? "";
-                    string val = valProp?.GetValue(card)?.ToString() ?? "";
-                    if (key == "BSCALE") double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out bscale);
-                    if (key == "BZERO") double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out bzero);
-                }
-            }
-        }
-        catch { }
-        return (bscale, bzero);
+        return Math.Abs(val - Math.Round(val)) < 1e-4
+            ? Math.Round(val).ToString("0", CultureInfo.InvariantCulture)
+            : val.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     private async Task LoadStatisticsAtIndexAsync(int index)
@@ -106,15 +87,15 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                 await Task.Run(() =>
                 {
                     using Mat srcMat = _dataManager.GetMatFromHdu(hdu);
-                    using Mat floatMat = new Mat();
+                    using Mat doubleMat = new Mat();
 
-                    if (srcMat.Type() != MatType.CV_32FC1) srcMat.ConvertTo(floatMat, MatType.CV_32FC1);
-                    else srcMat.CopyTo(floatMat);
+                    if (srcMat.Type() != MatType.CV_64FC1) srcMat.ConvertTo(doubleMat, MatType.CV_64FC1);
+                    else srcMat.CopyTo(doubleMat);
 
-                    float[] pixels = new float[floatMat.Rows * floatMat.Cols];
-                    System.Runtime.InteropServices.Marshal.Copy(floatMat.Data, pixels, 0, pixels.Length);
-
-                    var (bscale, bzero) = GetBScaleBZero(hdu.Header);
+                    int rows = doubleMat.Rows;
+                    int cols = doubleMat.Cols;
+                    double[] pixels = new double[rows * cols];
+                    System.Runtime.InteropServices.Marshal.Copy(doubleMat.Data, pixels, 0, pixels.Length);
 
                     double minVal = double.MaxValue;
                     double maxVal = double.MinValue;
@@ -125,31 +106,33 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                     double sum = 0;
                     int idx = 0;
 
-                    for (int y = 0; y < floatMat.Rows; y++)
+                    for (int y = 0; y < rows; y++)
                     {
-                        for (int x = 0; x < floatMat.Cols; x++)
+                        int astroY = (rows - 1) - y;
+
+                        for (int x = 0; x < cols; x++)
                         {
-                            float p = pixels[idx++];
-                            if (!float.IsNaN(p) && !float.IsInfinity(p))
+                            double p = pixels[idx++];
+                            if (!double.IsNaN(p) && !double.IsInfinity(p))
                             {
-                                double scaledValue = (p * bscale) + bzero;
-                                validPixels.Add(scaledValue);
-                                sum += scaledValue;
-                                if (scaledValue < minVal) { minVal = scaledValue; minLoc = new Point(x, y); }
-                                if (scaledValue > maxVal) { maxVal = scaledValue; maxLoc = new Point(x, y); }
+                                validPixels.Add(p);
+                                sum += p;
+                                if (p < minVal) { minVal = p; minLoc = new Point(x, astroY); }
+                                if (p > maxVal) { maxVal = p; maxLoc = new Point(x, astroY); }
                             }
                         }
                     }
 
                     if (token.IsCancellationRequested) return;
 
+                    double mean = 0;
                     double background = 0;
                     double stdDev = 0;
 
                     if (validPixels.Count > 1)
                     {
-                        // Deviazione standard campionaria (N - 1)
-                        double mean = sum / validPixels.Count;
+                        mean = sum / validPixels.Count;
+
                         double sqSum = 0;
                         foreach (var p in validPixels)
                         {
@@ -157,7 +140,6 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                         }
                         stdDev = Math.Sqrt(sqSum / (validPixels.Count - 1));
 
-                        // Background calcolato come mediana con Sigma Clipping iterativo a 3-sigma
                         List<double> clipData = new List<double>(validPixels);
                         for (int iter = 0; iter < 3; iter++)
                         {
@@ -185,6 +167,7 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                     }
                     else if (validPixels.Count == 1)
                     {
+                        mean = validPixels[0];
                         background = validPixels[0];
                         stdDev = 0;
                     }
@@ -194,9 +177,6 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                         maxVal = 0;
                     }
 
-                    int cols = floatMat.Cols;
-                    int rows = floatMat.Rows;
-
                     Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         if (token.IsCancellationRequested) return;
@@ -204,11 +184,13 @@ public partial class FitsStatisticsViewModel : ObservableObject, IDisposable
                         StatPath = file.FilePath;
                         StatDimension = $"{cols} x {rows}";
                         StatPixel = (cols * rows).ToString(CultureInfo.InvariantCulture);
-                        StatRange = string.Format(CultureInfo.InvariantCulture, "{0:F3} : {1:F1}", minVal, maxVal);
-                        StatMin = string.Format(CultureInfo.InvariantCulture, "{0:F3} @ {1},{2}", minVal, minLoc.X, minLoc.Y);
-                        StatMax = string.Format(CultureInfo.InvariantCulture, "{0:F1} @ {1},{2}", maxVal, maxLoc.X, maxLoc.Y);
-                        StatBackground = background.ToString("F1", CultureInfo.InvariantCulture);
-                        StatStdDev = stdDev.ToString("F4", CultureInfo.InvariantCulture);
+                        StatRange = $"{FormatAdu(minVal)} : {FormatAdu(maxVal)}";
+                        StatMin = $"{FormatAdu(minVal)} @ {minLoc.X},{minLoc.Y}";
+                        StatMax = $"{FormatAdu(maxVal)} @ {maxLoc.X},{maxLoc.Y}";
+                        StatBackground = FormatAdu(background);
+                        StatStdDev = stdDev.ToString("F5", CultureInfo.InvariantCulture);
+                        StatMean = mean.ToString("F3", CultureInfo.InvariantCulture);
+                        StatSum = Math.Round(sum).ToString("0", CultureInfo.InvariantCulture);
                     });
                 }, token);
             }

@@ -7,6 +7,7 @@
              xmlns:nodes="clr-namespace:Kometra.ViewModels.Nodes"
              xmlns:views="clr-namespace:Kometra.Views"
              xmlns:controls="clr-namespace:Kometra.Controls"
+             xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
              
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Kometra.Views.BoardView"
@@ -24,7 +25,8 @@
 
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Statistiche FITS..." Command="{Binding ShowFitsStatisticsWindowCommand}" />
+            <MenuItem Header="{Binding [MenuFitsStatistics], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                      Command="{Binding ShowFitsStatisticsWindowCommand}" />
         </ContextMenu>
     </UserControl.ContextMenu>
 
