@@ -764,5 +764,18 @@
     <data name="ColIsoLevel" xml:space="preserve"><value>Isophote Level (ADU)</value></data>
     <data name="ColArea" xml:space="preserve"><value>Enclosed Area (px²)</value></data>
     <data name="BtnConfirmNode" xml:space="preserve"><value>Confirm Node</value></data>
+    <data name="MenuFitsStatistics" xml:space="preserve"><value>FITS Statistics</value></data>
+    <data name="StatsWindowTitle" xml:space="preserve"><value>FITS Statistics</value></data>
+    <data name="StatsPath" xml:space="preserve"><value>Path</value></data>
+    <data name="StatsDimension" xml:space="preserve"><value>Dimension</value></data>
+    <data name="StatsPixels" xml:space="preserve"><value>Pixels</value></data>
+    <data name="StatsRange" xml:space="preserve"><value>Range</value></data>
+    <data name="StatsMin" xml:space="preserve"><value>Minimum</value></data>
+    <data name="StatsMax" xml:space="preserve"><value>Maximum</value></data>
+    <data name="StatsBackground" xml:space="preserve"><value>Background</value></data>
+    <data name="StatsStdDev" xml:space="preserve"><value>Std Deviation</value></data>
+    <data name="StatsMean" xml:space="preserve"><value>Mean</value></data>
+    <data name="StatsSum" xml:space="preserve"><value>Sum</value></data>
+    <data name="BtnClose" xml:space="preserve"><value>Close</value></data>
     <data name="ColInclination" xml:space="preserve"><value>Inclination</value></data>
 </root>

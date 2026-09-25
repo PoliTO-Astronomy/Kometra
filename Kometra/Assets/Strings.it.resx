@@ -653,10 +653,23 @@
     <data name="ColIntensity" xml:space="preserve"><value>Intensità (ADU)</value></data>
     <data name="ColRadius" xml:space="preserve"><value>Raggio</value></data>
     <data name="ColValue" xml:space="preserve"><value>Valore</value></data>
-    <data name="ColStdDev" xml:space="preserve"><value>Dev. Std</value></data>
+    <data name="ColStdDev" xml:space="preserve"><value>Deviazione Standard</value></data>
     <data name="ColPixelCount" xml:space="preserve"><value>Pixel #</value></data>
     <data name="ColIsoLevel" xml:space="preserve"><value>Livello Isofota (ADU)</value></data>
     <data name="ColArea" xml:space="preserve"><value>Area Racchiusa (px²)</value></data>
     <data name="BtnConfirmNode" xml:space="preserve"><value>Conferma Nodo</value></data>
-     <data name="ColInclination" xml:space="preserve"><value>Inclinazione</value></data>
+    <data name="ColInclination" xml:space="preserve"><value>Inclinazione</value></data>
+    <data name="MenuFitsStatistics" xml:space="preserve"><value>Statistiche FITS</value></data>
+    <data name="StatsWindowTitle" xml:space="preserve"><value>Statistiche FITS</value></data>
+    <data name="StatsPath" xml:space="preserve"><value>Percorso</value></data>
+    <data name="StatsDimension" xml:space="preserve"><value>Dimensione</value></data>
+    <data name="StatsPixels" xml:space="preserve"><value>Pixel</value></data>
+    <data name="StatsRange" xml:space="preserve"><value>Range</value></data>
+    <data name="StatsMin" xml:space="preserve"><value>Minimo</value></data>
+    <data name="StatsMax" xml:space="preserve"><value>Massimo</value></data>
+    <data name="StatsBackground" xml:space="preserve"><value>Background</value></data>
+    <data name="StatsStdDev" xml:space="preserve"><value>Deviazione Std</value></data>
+    <data name="StatsMean" xml:space="preserve"><value>Media</value></data>
+    <data name="StatsSum" xml:space="preserve"><value>Somma</value></data>
+    <data name="BtnClose" xml:space="preserve"><value>Chiudi</value></data>
 </root>
