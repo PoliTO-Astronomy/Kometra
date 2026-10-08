@@ -641,6 +641,7 @@
     <data name="ParamCenterY" xml:space="preserve"><value>Centro Y (px)</value></data>
     <data name="ParamMaxRadius" xml:space="preserve"><value>Raggio Max (px)</value></data>
     <data name="ParamStepBin" xml:space="preserve"><value>Step / Bin (px)</value></data>
+    <data name="ParamStepBinADU" xml:space="preserve"><value>Step / Bin (ADU)</value></data>
     <data name="ParamStartAngle" xml:space="preserve"><value>Angolo Partenza (°)</value></data>
     <data name="ParamIntAngle" xml:space="preserve"><value>Angolo Integrazione (°)</value></data>
     <data name="ParamStatMetric" xml:space="preserve"><value>Metrica Statistica per Anello</value></data>

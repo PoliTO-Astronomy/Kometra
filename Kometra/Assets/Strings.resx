@@ -747,6 +747,7 @@
     <data name="ParamCenterY" xml:space="preserve"><value>Center Y (px)</value></data>
     <data name="ParamMaxRadius" xml:space="preserve"><value>Max Radius (px)</value></data>
     <data name="ParamStepBin" xml:space="preserve"><value>Step / Bin (px)</value></data>
+    <data name="ParamStepBinADU" xml:space="preserve"><value>Step / Bin (ADU)</value></data>
     <data name="ParamStartAngle" xml:space="preserve"><value>Start Angle (°)</value></data>
     <data name="ParamIntAngle" xml:space="preserve"><value>Integration Angle (°)</value></data>
     <data name="ParamStatMetric" xml:space="preserve"><value>Ring Statistical Metric</value></data>

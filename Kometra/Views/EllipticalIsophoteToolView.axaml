@@ -45,7 +45,7 @@
 
                     <Grid ColumnDefinitions="*, 10, *">
                         <StackPanel Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock Text="{Binding [ParamStepBin], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <TextBlock Text="{Binding [ParamStepBinADU], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
                             <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" 
                                            ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
                         </StackPanel>
