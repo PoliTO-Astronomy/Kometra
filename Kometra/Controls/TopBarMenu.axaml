@@ -109,6 +109,37 @@
             
             <Separator />
 
+            <!-- SEZIONE GRAFICI LOCALIZZATA -->
+            <MenuItem Header="{Binding [MenuGraphs], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="innerMenuItem">
+                <MenuItem.Icon>
+                    <avalonia:MaterialIcon Kind="ChartBoxOutline" />
+                </MenuItem.Icon>
+
+                <MenuItem Header="{Binding [MenuPhotometricProfile], Source={x:Static infrastructure:LocalizationManager.Instance}}"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowPhotometricProfileWindowCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="SelectionOff" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <MenuItem Header="{Binding [MenuRadialProfiles], Source={x:Static infrastructure:LocalizationManager.Instance}}"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowRadialProfileToolCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="ChartBellCurveCumulative" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
+                <MenuItem Header="{Binding [MenuIsophotes], Source={x:Static infrastructure:LocalizationManager.Instance}}"
+                          Classes="innerMenuItem"
+                          Command="{Binding BoardVm.ShowEllipticalIsophotesWindowCommand}">
+                    <MenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="EllipseOutline" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+
             <MenuItem Header="{Binding [MenuMorphAnalysis], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="innerMenuItem">
                 <MenuItem.Icon>
                     <avalonia:MaterialIcon Kind="Creation" />
@@ -279,6 +310,14 @@
                         <avalonia:MaterialIcon Kind="MathLog" /> 
                     </MenuItem.Icon>
                 </MenuItem>
+            </MenuItem>
+
+            <MenuItem Header="{Binding [MenuFitsStatistics], Source={x:Static infrastructure:LocalizationManager.Instance}}"
+                      Classes="innerMenuItem"
+                      Command="{Binding BoardVm.ShowFitsStatisticsWindowCommand}">
+                <MenuItem.Icon>
+                    <avalonia:MaterialIcon Kind="ChartBar" />
+                </MenuItem.Icon>
             </MenuItem>
 
             <Separator />

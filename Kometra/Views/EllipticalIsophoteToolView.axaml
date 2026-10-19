@@ -1,0 +1,167 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        xmlns:vm="using:Kometra.ViewModels.ImageProcessing"
+        xmlns:vis="using:Kometra.ViewModels.Visualization"
+        xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
+        x:Class="Kometra.Views.EllipticalIsophoteToolView"
+        x:DataType="vm:EllipticalIsophoteToolViewModel"
+        Title="{Binding [MenuIsophotes], Source={x:Static infrastructure:LocalizationManager.Instance}}"
+        Width="1280" Height="800"
+        MinWidth="1200" MinHeight="700"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <StyleInclude Source="/Styles/AlignmentToolStyles.axaml" />
+    </Window.Styles>
+
+    <Grid ColumnDefinitions="600, 4, *" RowDefinitions="*, Auto" Margin="12">
+        
+        <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto, Auto, *, Auto">
+            
+            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                <TextBlock Text="{Binding [TitleIsophotes], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="16" FontWeight="Bold" Foreground="#E0E0E0" />
+                <TextBlock Text="{Binding [DescIsophotes], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                           FontSize="12" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding [ParamMinAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="MinValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding [ParamMaxAdu], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="MaxValueBox" Minimum="0" Maximum="1000000" Increment="10" FormatString="F1" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*, 10, *">
+                        <StackPanel Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock Text="{Binding [ParamStepBinADU], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="paramLabel"/>
+                            <NumericUpDown Name="StepSizeBox" Minimum="1" Maximum="5000" Increment="10" FormatString="F0" 
+                                           ValueChanged="OnBoxValueChanged" LostFocus="OnInputLostFocus" KeyDown="OnInputKeyDown"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- TABELLA DATI CSV -->
+            <Border Grid.Row="2" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1">
+                <Grid>
+                    <StackPanel IsVisible="{Binding !HasCalculatedProfile}" 
+                                HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                        <avalonia:MaterialIcon Kind="ImageOutline" Width="48" Height="48" Foreground="#444444"/>
+                        <TextBlock Text="{Binding [StatusAnalyzing], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                                   Foreground="#777777" FontSize="14" FontStyle="Italic" 
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Grid IsVisible="{Binding HasCalculatedProfile}" RowDefinitions="Auto, *">
+                        <Grid Grid.Row="0" ColumnDefinitions="*, *, *" Margin="16,8,16,8">
+                            <TextBlock Grid.Column="0" Text="sma" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA"/>
+                            <TextBlock Grid.Column="1" Text="x" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="y" FontWeight="Bold" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Right"/>
+                        </Grid>
+                        
+                        <ListBox Grid.Row="1" ItemsSource="{Binding CsvPreviewRows}" Background="Transparent" BorderThickness="0" Margin="4,0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IsophoteCsvRow">
+                                    <Border BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="12,6">
+                                        <Grid ColumnDefinitions="*, *, *">
+                                            <TextBlock Grid.Column="0" Text="{Binding Sma, StringFormat={}{0:F2}}" FontSize="12" Foreground="#4CC2FF"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding X, StringFormat={}{0:F2}}" FontSize="12" Foreground="#E0E0E0" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Y, StringFormat={}{0:F2}}" FontSize="12" Foreground="#FFB74D" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="*, 10, *">
+                <Button Grid.Column="0" Command="{Binding ExportDataCommand}" 
+                        Content="Export CSV" 
+                        IsEnabled="{Binding HasCalculatedProfile}"
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"/>
+                        
+                <Button Grid.Column="2" Content="{Binding [BtnConfirmNode], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                        Command="{Binding ApplyCommand}" 
+                        IsEnabled="{Binding HasCalculatedProfile}"
+                        Classes="apply" 
+                        HorizontalAlignment="Stretch" 
+                        HorizontalContentAlignment="Center"/>
+            </Grid>
+        </Grid>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" Background="Transparent" />
+
+        <Grid Grid.Column="2" Grid.Row="0" Margin="8,0,0,0" RowDefinitions="*, Auto">
+            
+            <Border Name="PreviewBorder" Grid.Row="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" ClipToBounds="True"
+                    PointerPressed="OnPreviewPointerPressed" 
+                    PointerReleased="OnPreviewPointerReleased" 
+                    PointerMoved="OnPreviewPointerMoved" 
+                    PointerWheelChanged="OnPreviewPointerWheelChanged"
+                    SizeChanged="OnPreviewSizeChanged">
+                <Grid x:Name="ImageContainerGrid" Background="Transparent" ClipToBounds="True">
+                    
+                    <Canvas Name="ViewportCanvas" RenderTransformOrigin="0,0">
+                        <Canvas.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform ScaleX="{Binding Viewport.Scale}" ScaleY="{Binding Viewport.Scale}"/>
+                                <TranslateTransform X="{Binding Viewport.OffsetX}" Y="{Binding Viewport.OffsetY}"/>
+                            </TransformGroup>
+                        </Canvas.RenderTransform>
+
+                        <Image Source="{Binding PreviewRenderer.Image}" Stretch="None" RenderOptions.BitmapInterpolationMode="None"/>
+                        <Image Source="{Binding OverlayImage}" Stretch="None" RenderOptions.BitmapInterpolationMode="None" IsHitTestVisible="False" />
+                    </Canvas>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom" ZIndex="1"
+                                IsVisible="{Binding HasMultipleImages}">
+                        <Button Command="{Binding Navigator.PreviousCommand}" ToolTip.Tip="{Binding [TooltipPrevImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
+                            <avalonia:MaterialIcon Kind="ChevronLeft" Width="16" Height="16"/>
+                        </Button>
+                        <Border Background="#66000000" CornerRadius="4" Padding="8,0" VerticalAlignment="Stretch">
+                            <TextBlock Text="{Binding CurrentImageText}" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                        </Border>
+                        <Button Command="{Binding Navigator.NextCommand}" ToolTip.Tip="{Binding [TooltipNextImage], Source={x:Static infrastructure:LocalizationManager.Instance}}">
+                            <avalonia:MaterialIcon Kind="ChevronRight" Width="16" Height="16"/>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" ZIndex="1" PointerPressed="OnControlsPointerPressed">
+                        <Button Click="OnZoomOutClicked" ToolTip.Tip="Zoom Out"><avalonia:MaterialIcon Kind="Minus" Width="16" Height="16"/></Button>
+                        <Button Click="OnZoomInClicked" ToolTip.Tip="Zoom In"><avalonia:MaterialIcon Kind="Plus" Width="16" Height="16"/></Button>
+                        <Button Command="{Binding ResetViewCommand}" ToolTip.Tip="Fit to Screen"><avalonia:MaterialIcon Kind="FitToScreen" Width="16" Height="16"/></Button>
+                        <Path Data="M0,0 V18" Stroke="#666666" StrokeThickness="1" Margin="8,4,8,4" VerticalAlignment="Center" />
+                        <Button Command="{Binding ResetThresholdsCommand}" ToolTip.Tip="Auto Stretch"><avalonia:MaterialIcon Kind="Contrast" Width="16" Height="16"/></Button>
+                    </StackPanel>
+
+                    <Border Background="#A0000000" IsVisible="{Binding IsLoading}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ZIndex="20">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                            <ProgressBar IsIndeterminate="True" Width="180" Height="4" />
+                            <TextBlock Text="{Binding [StatusAnalyzing], Source={x:Static infrastructure:LocalizationManager.Instance}}" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Background="#1A1A1A" BorderBrush="#2A2A2A" BorderThickness="0,1,0,0" Padding="8,4" Margin="0,8,0,0">
+            <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center" />
+        </Border>
+    </Grid>
+</Window>

@@ -28,6 +28,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ImportViewModel = Kometra.ViewModels.ImportExport.ImportViewModel;
 using SettingsViewModel = Kometra.ViewModels.Settings.SettingsViewModel;
 using VideoExportToolViewModel = Kometra.ViewModels.ImportExport.VideoExportToolViewModel;
+using Kometra.Services.Fits.Conversion;
+using Kometra.Services.Processing.Engines; 
 
 namespace Kometra.Services.UI;
 
@@ -306,6 +308,80 @@ public class WindowService : IWindowService
         await ShowDialogAsync(view, viewModel);
     }
 
+    public async Task<List<string>?> ShowPhotometricProfileWindowAsync(List<FitsFileReference> files, VisualizationMode mode)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        // Risoluzione delle dipendenze dal contenitore globale (aggiunto dataManager)
+        var coordinator = _serviceProvider.GetRequiredService<IPhotometricProfileCoordinator>();
+        var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
+        var converter = _serviceProvider.GetRequiredService<IFitsOpenCvConverter>();
+        var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>(); // <-- NUOVO
+
+        // Creazione del ViewModel passando anche dataManager come quinto parametro
+        using var viewModel = new PhotometricProfileToolViewModel(files, coordinator, rendererFactory, converter, dataManager, this);
+        
+        // Creazione della View e assegnazione del DataContext
+        var view = new PhotometricProfileToolView { DataContext = viewModel };
+
+        // Visualizzazione della finestra modale e restituzione dei percorsi solo se l'utente preme "Applica"
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
+    }
+
+    public async Task<string?> ShowSaveFileDialogAsync(string title, string defaultFileName, string[]? extensions = null)
+    {
+        if (_mainWindow == null) return null;
+
+        var savePicker = await _mainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = defaultFileName
+        });
+
+        return savePicker?.Path.LocalPath;
+    }
+
+    public async Task<List<string>?> ShowRadialProfileWindowAsync(List<Kometra.Models.Fits.FitsFileReference> files)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        var coordinator = _serviceProvider.GetRequiredService<Kometra.Services.Processing.Coordinators.IRadialProfileCoordinator>();
+        var dataManager = _serviceProvider.GetRequiredService<Kometra.Services.Fits.IFitsDataManager>();
+        var rendererFactory = _serviceProvider.GetRequiredService<Kometra.Services.Factories.IFitsRendererFactory>();
+        var converter = _serviceProvider.GetRequiredService<Kometra.Services.Fits.Conversion.IFitsOpenCvConverter>();
+        
+        using var viewModel = new Kometra.ViewModels.ImageProcessing.RadialProfileToolViewModel(
+            files, coordinator, dataManager, rendererFactory, converter, this);
+
+        var view = new Kometra.Views.RadialProfileToolView
+        {
+            DataContext = viewModel
+        };
+
+        // Restituisce ResultPaths SOLO SE DialogResult è true (dopo aver premuto "Applica")
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
+    }
+
+
+    public async Task<List<string>?> ShowEllipticalIsophoteWindowAsync(List<FitsFileReference> files)
+    {
+        if (_mainWindow == null) throw new InvalidOperationException("Finestra principale non registrata.");
+
+        var coordinator = _serviceProvider.GetRequiredService<IEllipticalIsophoteCoordinator>();
+        var dataManager = _serviceProvider.GetRequiredService<IFitsDataManager>();
+        var rendererFactory = _serviceProvider.GetRequiredService<IFitsRendererFactory>();
+        
+        using var viewModel = new EllipticalIsophoteToolViewModel(files, coordinator, dataManager, rendererFactory, this);
+
+        var view = new EllipticalIsophoteToolView 
+        { 
+            DataContext = viewModel 
+        };
+
+        // Restituisce ResultPaths SOLO SE DialogResult è true (dopo aver premuto "Applica")
+        return await ShowDialogAndGetResultAsync(view, viewModel, vm => vm.ResultPaths);
+    }
+    
     // =======================================================================
     // HELPERS PER APERTURA DIALOGHI
     // =======================================================================
@@ -327,5 +403,23 @@ public class WindowService : IWindowService
         var propInfo = typeof(TVm).GetProperty("DialogResult");
         bool success = (bool)(propInfo?.GetValue(viewModel) ?? false);
         return success ? resultSelector(viewModel) : default;
+    }
+
+    public Task ShowFitsStatisticsWindowAsync(List<FitsFileReference> files, Kometra.Services.Fits.IFitsDataManager dataManager)
+    {
+        var vm = new Kometra.ViewModels.Fits.FitsStatisticsViewModel(files, dataManager);
+        var window = new Kometra.Views.FitsStatisticsView { DataContext = vm };
+        
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+        {
+            // Show(owner) apre la finestra in modo NON bloccante mantenendola in primo piano rispetto a Kometra
+            window.Show(desktop.MainWindow);
+        }
+        else
+        {
+            window.Show();
+        }
+
+        return Task.CompletedTask;
     }
 }

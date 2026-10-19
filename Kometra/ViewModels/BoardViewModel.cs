@@ -34,11 +34,9 @@ using Shared_SequenceNavigator = Shared.SequenceNavigator;
 
 public partial class BoardViewModel : ObservableObject
 {
-    // --- Costanti per Layout Grafico ---
     private const double DefaultNodeMarginX = 150.0;
     private const double CascadeOffsetY = 100.0;
 
-    // --- Dipendenze ---
     private readonly INodeViewModelFactory _nodeFactory;
     private readonly IWindowService _windowService;
     private readonly IFitsMetadataService _metadataService;
@@ -50,24 +48,18 @@ public partial class BoardViewModel : ObservableObject
     private readonly IArithmeticCoordinator _arithmeticCoordinator;
     private readonly INodeStructureCoordinator _nodeStructureCoordinator;
 
-    // --- Stato Navigazione ---
     public BoardViewport Viewport { get; } = new();
     
-    // --- Stato Selezione ---
     [ObservableProperty] 
     [NotifyPropertyChangedFor(nameof(SelectedImageNode))]
     private BaseNodeViewModel? _selectedNode;
 
-    // Collezione per la gestione della multi-selezione
     public ObservableCollection<BaseNodeViewModel> SelectedNodes { get; } = new();
 
-    // Proprietà per monitorare il numero di nodi selezionati
     public int SelectedNodesCount => SelectedNodes.Count;
     
-    // Restituisce il nodo immagine solo se la selezione è univoca (1 solo nodo selezionato)
     private ImageNodeViewModel? SelectedImageNode => SelectedNodesCount == 1 ? SelectedNodes[0] as ImageNodeViewModel : null;
 
-    // --- PROPRIETÀ DINAMICHE PER L'INTERFACCIA ---
     public string BoardBackgroundColor => _configService.Current.BoardBackgroundColor;
     public string PrimarySelectionColor => _configService.Current.PrimarySelectionColor;
 
@@ -79,7 +71,6 @@ public partial class BoardViewModel : ObservableObject
     public bool IsGlobalAnimationRunning => 
         Nodes.OfType<ImageNodeViewModel>().Any(n => n.Navigator is Shared_SequenceNavigator { IsLooping: true });
     
-    // --- Collezioni ---
     public ObservableCollection<BaseNodeViewModel> Nodes { get; } = new();
     public ObservableCollection<ConnectionViewModel> Connections { get; } = new();
     
@@ -126,10 +117,6 @@ public partial class BoardViewModel : ObservableObject
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // LOGICA SELEZIONE
-    // ---------------------------------------------------------------------------
-
     public void SetSelectedNode(BaseNodeViewModel? node) => SetSelectedNode(node, false);
 
     public void SetSelectedNode(BaseNodeViewModel? node, bool isModifierPressed)
@@ -142,7 +129,6 @@ public partial class BoardViewModel : ObservableObject
 
         if (!isModifierPressed)
         {
-            // Click pulito: azzera tutto e seleziona solo questo
             DeselectAllNodes();
             node.IsSelected = true;
             SelectedNodes.Add(node);
@@ -150,17 +136,14 @@ public partial class BoardViewModel : ObservableObject
         }
         else
         {
-            // Click con Modificatore (Multi-Selezione Illimitata)
             if (SelectedNodes.Contains(node))
             {
-                // Comportamento standard OS: Ctrl+Click su un elemento selezionato lo DESELEZIONA
                 node.IsSelected = false;
                 node.SelectionLetter = string.Empty;
                 SelectedNodes.Remove(node);
             }
             else
             {
-                // Aggiunge alla selezione senza alcun limite di numero
                 node.IsSelected = true;
                 SelectedNodes.Add(node);
             }
@@ -182,10 +165,8 @@ public partial class BoardViewModel : ObservableObject
 
     private void NotifySelectionCommands()
     {
-        // Pulisce tutte le lettere
         foreach (var n in Nodes) n.SelectionLetter = string.Empty;
 
-        // Assegna A e B SOLO se ci sono esattamente 2 nodi
         if (SelectedNodes.Count == 2)
         {
             SelectedNodes[0].SelectionLetter = "A";
@@ -210,7 +191,11 @@ public partial class BoardViewModel : ObservableObject
         ShowLocalContrastWindowCommand.NotifyCanExecuteChanged();
         ShowStarMaskingWindowCommand.NotifyCanExecuteChanged();
         ShowCropWindowCommand.NotifyCanExecuteChanged();
-
+        ShowPhotometricProfileWindowCommand.NotifyCanExecuteChanged();
+        ShowRadialProfileToolCommand.NotifyCanExecuteChanged();
+        ShowEllipticalIsophotesWindowCommand.NotifyCanExecuteChanged();
+        ShowFitsStatisticsWindowCommand.NotifyCanExecuteChanged();
+        
         AddNodesCommand.NotifyCanExecuteChanged();
         SubtractNodesCommand.NotifyCanExecuteChanged();
         MultiplyNodesCommand.NotifyCanExecuteChanged();
@@ -219,10 +204,6 @@ public partial class BoardViewModel : ObservableObject
         JoinCommand.NotifyCanExecuteChanged();
         SplitCommand.NotifyCanExecuteChanged();
     }
-
-    // ---------------------------------------------------------------------------
-    // HELPER POSIZIONAMENTO GRAFO
-    // ---------------------------------------------------------------------------
 
     private void RepositionNewNode(BaseNodeViewModel sourceNode, BaseNodeViewModel newNode, int index = 0)
     {
@@ -240,7 +221,6 @@ public partial class BoardViewModel : ObservableObject
         newNode.Y = sourceCenterY - newHalfHeight + offset;
     }
 
-    // [GRAFO: Add/Remove/Register] 
     private void AddNodeToGraph(BaseNodeViewModel node, string undoLabel)
     {
         var action = new DelegateAction(undoLabel,
@@ -271,8 +251,6 @@ public partial class BoardViewModel : ObservableObject
         _undoService.RecordAction(action);
     }
 
-    // --- GESTIONE RISULTATI ELABORAZIONE (COLLEGAMENTI) ---
-    
     private void RegisterProcessingResult(BaseNodeViewModel newNode, BaseNodeViewModel sourceNode, string tempFilePath, string undoLabel)
     {
         RegisterProcessingResult(newNode, new List<BaseNodeViewModel> { sourceNode }, tempFilePath, undoLabel);
@@ -321,9 +299,35 @@ public partial class BoardViewModel : ObservableObject
         Connections.Add(connection);
     }
 
-    // ---------------------------------------------------------------------------
-    // TOOL DI ELABORAZIONE (NODO SINGOLO)
-    // ---------------------------------------------------------------------------
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowPhotometricProfileWindow()
+    {
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        try 
+        {
+            var resultPaths = await _windowService.ShowPhotometricProfileWindowAsync(inputFiles, imgNode.VisualizationMode);
+            
+            if (resultPaths != null && resultPaths.Count >= 2)
+            {
+                var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
+                string csvPath = resultPaths.Last();
+                string title = $"{imgNode.Title} (Photometric Profile)";
+
+                double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
+                double targetX = imgNode.X + sourceWidth + DefaultNodeMarginX;
+                double targetY = imgNode.Y;
+
+                var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
+
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Photometric Profile");
+            }
+        }
+        catch (Exception ex) { Debug.WriteLine($"ERRORE: {ex.Message}"); }
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
     private async Task ShowCropWindow()
@@ -426,7 +430,7 @@ public partial class BoardViewModel : ObservableObject
             
             RegisterProcessingResult(newNode, imgNode, resultPaths[0], undoLabel);
         }
-        catch (Exception ex) { Debug.WriteLine($"Errore: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"ERRORE NASCOSTO: {ex.ToString()}"); }
     }
 
     private string GetEnhancementSuffix(ImageEnhancementMode mode)
@@ -450,10 +454,6 @@ public partial class BoardViewModel : ObservableObject
             _ => "(Filtrata)"
         };
     }
-
-    // ---------------------------------------------------------------------------
-    // OPERAZIONI MATEMATICHE (DOPPIO NODO A/B)
-    // ---------------------------------------------------------------------------
 
     [RelayCommand(CanExecute = nameof(CanExecuteMath))]
     private async Task AddNodes() => await RunArithmetic(ArithmeticOperation.Add, "Somma Immagini");
@@ -507,10 +507,6 @@ public partial class BoardViewModel : ObservableObject
         }
     }
     
-    // ===========================================================================
-    // OPERAZIONI DI STRUTTURA NODI (JOIN / SPLIT)
-    // ===========================================================================
-
     [RelayCommand(CanExecute = nameof(CanJoin))]
     private async Task Join()
     {
@@ -567,10 +563,6 @@ public partial class BoardViewModel : ObservableObject
         catch (Exception ex) { Debug.WriteLine($"Errore Split: {ex.Message}"); }
     }
 
-    // ---------------------------------------------------------------------------
-    // COMANDI BOARD / IMPORT / ALTRE OPERAZIONI
-    // ---------------------------------------------------------------------------
-
     [RelayCommand]
     private async Task AddNodeAsync()
     {
@@ -580,8 +572,7 @@ public partial class BoardViewModel : ObservableObject
         var (paths, separateNodes) = result.Value;
         var tasks = paths.Select(async path => { 
             var header = await _dataManager.GetHeaderOnlyAsync(path); 
-            var date = _metadataService.GetObservationDate(header) ?? DateTime.MinValue; 
-            return (Path: path, Date: date); 
+            var date = header != null ? _metadataService.GetObservationDate(header) ?? DateTime.MinValue : DateTime.MinValue;            return (Path: path, Date: date); 
         });
         var results = await Task.WhenAll(tasks);
         var sortedPaths = results.OrderBy(x => x.Date).Select(x => x.Path).ToList();
@@ -629,13 +620,36 @@ public partial class BoardViewModel : ObservableObject
         } catch(Exception ex) { Debug.WriteLine($"Stacking failed: {ex.Message}"); } 
     }
     
-    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    [RelayCommand(CanExecute = nameof(CanExportAnyNode))]
     private async Task ExportSelectedNode()
     {
-        var n = SelectedImageNode;
-        if (n == null) return;
-        var filePaths = n.CurrentFiles.Select(f => f.FilePath).ToList();
-        await _windowService.ShowExportWindowAsync(filePaths);
+        if (SelectedNodesCount != 1) return;
+        var node = SelectedNodes[0];
+
+        if (node is ImageNodeViewModel imageNode)
+        {
+            var filePaths = imageNode.CurrentFiles.Select(f => f.FilePath).ToList();
+            await _windowService.ShowExportWindowAsync(filePaths);
+        }
+        else if (node is GraphNodeViewModel graphNode)
+        {
+            if (graphNode.ImagePaths != null && graphNode.ImagePaths.Any())
+            {
+                await _windowService.ShowExportWindowAsync(graphNode.ImagePaths);
+            }
+
+            try
+            {
+                if (!string.IsNullOrEmpty(graphNode.CsvPath) && File.Exists(graphNode.CsvPath))
+                {
+                    string downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    string baseFileName = graphNode.Title.Replace(" ", "_").Replace("(", "").Replace(")", "");
+                    string finalCsv = Path.Combine(downloadsPath, $"{baseFileName}_{DateTime.Now:HHmmss}.csv");
+                    File.Copy(graphNode.CsvPath, finalCsv, true);
+                }
+            }
+            catch (Exception ex) { Debug.WriteLine($"Errore esportazione CSV: {ex.Message}"); }
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveVideo))]
@@ -671,13 +685,67 @@ public partial class BoardViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanUndo))] private void Undo() => _undoService.Undo();
     [RelayCommand(CanExecute = nameof(CanRedo))] private void Redo() => _undoService.Redo();
     
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowRadialProfileToolAsync()
+    {
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        try 
+        {
+            var resultPaths = await _windowService.ShowRadialProfileWindowAsync(inputFiles);
+            
+            if (resultPaths != null && resultPaths.Count >= 2)
+            {
+                var pngPaths = resultPaths.Take(resultPaths.Count - 1).ToList();
+                string csvPath = resultPaths.Last();
+                string title = $"{imgNode.Title} (Radial Profile)";
+
+                double sourceWidth = imgNode.EstimatedTotalSize.Width > 0 ? imgNode.EstimatedTotalSize.Width : 450;
+                double targetX = imgNode.X + sourceWidth + DefaultNodeMarginX;
+                double targetY = imgNode.Y;
+
+                var newGraphNode = await _nodeFactory.CreateGraphNodeAsync(pngPaths, csvPath, title, targetX, targetY);
+
+                RegisterProcessingResult(newGraphNode, imgNode, string.Empty, "Profilo Radiale");
+            }
+        }
+        catch (Exception ex) 
+        { 
+            Debug.WriteLine($"ERRORE: {ex.Message}"); 
+        }
+    }
+    
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowEllipticalIsophotesWindowAsync()
+    {
+        await RunGenericProcessing(async (files, mode) => 
+        {
+            var paths = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => 
+                await _windowService.ShowEllipticalIsophoteWindowAsync(files));
+            
+            return (paths != null && paths.Any()) ? (paths, "(Isophotes)") : null;
+        }, "Isofote Ellittiche");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExecuteOnImageNode))]
+    private async Task ShowFitsStatisticsWindow()
+    {
+        var imgNode = SelectedImageNode;
+        if (imgNode == null) return;
+        var inputFiles = imgNode.CurrentFiles.ToList();
+        if (!inputFiles.Any()) return;
+
+        await _windowService.ShowFitsStatisticsWindowAsync(inputFiles, _dataManager);
+    }
+    
     private bool CanUndo() => _undoService.CanUndo;
     private bool CanRedo() => _undoService.CanRedo;
     public void Pan(Vector delta) => Viewport.ApplyPan(delta.X, delta.Y);
     public void Zoom(double deltaY, Point mousePosition) { double factor = deltaY > 0 ? 1.1 : (1.0 / 1.1); Viewport.ApplyZoomAtPoint(factor, mousePosition); }
     public void Pan(double deltaX, double deltaY) => Viewport.ApplyPan(deltaX, deltaY);
-
-    // --- PREDICATI DI ESECUZIONE ---
 
     private bool CanExecuteMath()
     {
@@ -691,9 +759,11 @@ public partial class BoardViewModel : ObservableObject
     private bool CanJoin() => SelectedNodesCount >= 2;
     private bool CanSplit() => SelectedNodesCount == 1 && SelectedImageNode?.Navigator.TotalCount > 1;
 
+    private bool CanExportAnyNode() => SelectedNodesCount == 1 && (SelectedNodes[0] is ImageNodeViewModel || SelectedNodes[0] is GraphNodeViewModel);
+    
     private bool CanExecuteOnImageNode() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel;
     private bool CanEditHeader() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.ActiveFile != null;
-    private bool CanSetVisualizationMode(VisualizationMode mode) => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.VisualizationMode != mode;
+    private bool CanSetVisualizationMode(VisualizationMode mode) => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.VisualizationMode != mode && !n.Title.Contains("Isophotes");
     private bool CanSaveVideo() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.Navigator.TotalCount > 1;
     private bool CanToggleAnimation() => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.Navigator.CanMove;
     private bool CanStackImages(StackingMode mode) => SelectedNodesCount == 1 && SelectedNodes[0] is ImageNodeViewModel n && n.Navigator.TotalCount > 1;

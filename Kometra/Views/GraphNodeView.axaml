@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:nodes="clr-namespace:Kometra.ViewModels.Nodes"
+             mc:Ignorable="d" 
+             x:Class="Kometra.Views.GraphNodeView"
+             x:DataType="nodes:GraphNodeViewModel"
+             d:DesignWidth="300" d:DesignHeight="250"
+             ClipToBounds="False"
+             PointerPressed="OnPointerPressed"
+             PointerReleased="OnPointerReleased"
+             PointerMoved="OnPointerMoved">
+    
+    <UserControl.RenderTransform>
+        <TranslateTransform X="{Binding VisualOffsetX}" Y="{Binding VisualOffsetY}"/>
+    </UserControl.RenderTransform>
+
+    <Grid ClipToBounds="False">
+        <Border Classes="NodeFrame" 
+                Classes.selected="{Binding IsSelected}"
+                Tag="Image"
+                ZIndex="1">
+            
+            <Grid RowDefinitions="Auto, *">
+                
+                <Border Grid.Row="0" 
+                        Name="TitleHeader"
+                        Classes="Header" 
+                        MaxWidth="{Binding NodeContentSize.Width}" 
+                        ClipToBounds="True"
+                        Background="Transparent">
+                    
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Name="TitleTextBox"
+                                 Grid.Column="0" 
+                                 Classes="NodeTitleEditor"
+                                 Text="{Binding Title, Mode=TwoWay}"
+                                 IsReadOnly="True"
+                                 HorizontalAlignment="Stretch"
+                                 TextAlignment="Left" 
+                                 TextWrapping="NoWrap"
+                                 AcceptsReturn="False"
+                                 LostFocus="TitleTextBox_OnLostFocus"
+                                 KeyDown="TitleTextBox_OnKeyDown"/>
+                        
+                        <Button Grid.Column="1" 
+                                Content="✕" 
+                                Classes="CloseButton"
+                                Command="{Binding RemoveSelfCommand}"
+                                Width="{Binding $self.Bounds.Height}"/>
+                    </Grid>
+                </Border>
+                
+                <Border Grid.Row="1" 
+                        Name="ImageContainer" 
+                        Classes="Body"
+                        ClipToBounds="True"
+                        Width="{Binding NodeContentSize.Width}"
+                        Height="{Binding NodeContentSize.Height}"
+                        Background="{DynamicResource ImageCanvasBackgroundBrush}">
+                    
+                    <Grid>
+                        <Image Source="{Binding CurrentGraphImage}"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                        
+                        <!-- Overlay con le freccette e il contatore identico a MultipleImagesNodeView -->
+                        <Grid Classes="NavOverlay" IsVisible="{Binding HasMultipleGraphs}"> 
+                            <Border Classes="CounterBadge">
+                                <TextBlock Classes="CounterText"
+                                           Text="{Binding CurrentImageText}"/> 
+                            </Border>
+                            
+                            <Button Classes="NavButton" 
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                    Margin="10,10"
+                                    Padding="14,16,18,16"
+                                    CornerRadius="4"
+                                    Command="{Binding Previous}">
+                                <avalonia:MaterialIcon Kind="ChevronLeft" />
+                            </Button>
+                            
+                            <Button Classes="NavButton" 
+                                    HorizontalAlignment="Right" VerticalAlignment="Center" 
+                                    Margin="10,10"
+                                    Padding="18,16,14,16"
+                                    CornerRadius="4"
+                                    Command="{Binding Next}">
+                                <avalonia:MaterialIcon Kind="ChevronRight" />
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Border Background="{DynamicResource ActionPrimaryBackgroundBrush}"
+                IsVisible="{Binding SelectionLetter, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="-34,-34,0,0"
+                Padding="12,6"
+                Width="68"
+                Height="68"
+                CornerRadius="8"
+                ZIndex="10"
+                IsHitTestVisible="False"
+                BoxShadow="0 4 8 0 #60000000">
+            <TextBlock Text="{Binding SelectionLetter}"
+                       Foreground="White"
+                       FontSize="40"
+                       FontWeight="ExtraBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</UserControl>

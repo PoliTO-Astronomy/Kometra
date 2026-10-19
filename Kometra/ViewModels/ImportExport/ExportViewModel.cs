@@ -5,16 +5,17 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Kometra.Infrastructure; // Aggiunto per localizzazione
+using Kometra.Infrastructure; 
 using Kometra.Models.Export;
 using Kometra.Models.Processing.Batch;
 using Kometra.Models.Visualization;
 using Kometra.Services.Factories;
 using Kometra.Services.Fits;
 using Kometra.Services.ImportExport;
-using Kometra.Services.Settings; // Aggiunto per IToolParametersCache
+using Kometra.Services.Settings; 
 using Kometra.Services.UI;
 using Kometra.ViewModels.Shared;
 using Kometra.ViewModels.Visualization;
@@ -27,7 +28,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
     private readonly IDialogService _dialogService;
     private readonly IFitsDataManager _dataManager;
     private readonly IFitsRendererFactory _rendererFactory;
-    private readonly IToolParametersCache _parametersCache; // Aggiunto cassetto
+    private readonly IToolParametersCache _parametersCache; 
 
     private CancellationTokenSource? _exportCts;
     private CancellationTokenSource? _previewCts;
@@ -44,8 +45,12 @@ public partial class ExportViewModel : ObservableObject, IDisposable
     [ObservableProperty] 
     [NotifyPropertyChangedFor(nameof(CurrentBlackPoint))]
     [NotifyPropertyChangedFor(nameof(CurrentWhitePoint))]
-    [NotifyPropertyChangedFor(nameof(IsNavigationUIVisible))] // Notifica la visibilità della navigazione
+    [NotifyPropertyChangedFor(nameof(IsNavigationUIVisible))] 
     private FitsRenderer? _activeRenderer;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNavigationUIVisible))]
+    private Avalonia.Media.Imaging.Bitmap? _staticImage;
     
     [ObservableProperty] private double _dataMin = 0;
     [ObservableProperty] private double _dataMax = 65535;
@@ -69,7 +74,6 @@ public partial class ExportViewModel : ObservableObject, IDisposable
     public List<ExportFormat> AvailableFormats { get; } = Enum.GetValues<ExportFormat>().ToList();
     public List<FitsCompressionMode> AvailableCompressions { get; } = Enum.GetValues<FitsCompressionMode>().ToList();
     
-    // Lista per popolare la ComboBox dello Stretch ed evitare che risulti vuota all'avvio
     public ObservableCollection<string> StretchModes { get; } = new();
 
     [ObservableProperty]
@@ -78,6 +82,8 @@ public partial class ExportViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsVisualProcessingVisible))]
     [NotifyPropertyChangedFor(nameof(CanMergeToMef))] 
     private ExportFormat _selectedFormat = ExportFormat.FITS;
+
+    [ObservableProperty] private bool _isFormatSelectionEnabled = true;
 
     [ObservableProperty] private bool _mergeIntoSingleFile;
     [ObservableProperty] private FitsCompressionMode _selectedCompression = FitsCompressionMode.None; 
@@ -89,14 +95,14 @@ public partial class ExportViewModel : ObservableObject, IDisposable
 
     public double CurrentBlackPoint
     {
-        get => _activeRenderer?.BlackPoint ?? 0;
-        set { if (_activeRenderer != null) { _activeRenderer.BlackPoint = value; OnPropertyChanged(); } }
+        get => ActiveRenderer?.BlackPoint ?? 0;
+        set { if (ActiveRenderer != null) { ActiveRenderer.BlackPoint = value; OnPropertyChanged(); } }
     }
 
     public double CurrentWhitePoint
     {
-        get => _activeRenderer?.WhitePoint ?? 0;
-        set { if (_activeRenderer != null) { _activeRenderer.WhitePoint = value; OnPropertyChanged(); } }
+        get => ActiveRenderer?.WhitePoint ?? 0;
+        set { if (ActiveRenderer != null) { ActiveRenderer.WhitePoint = value; OnPropertyChanged(); } }
     }
 
     [ObservableProperty] 
@@ -116,18 +122,17 @@ public partial class ExportViewModel : ObservableObject, IDisposable
 
     public event Action? RequestClose;
 
-    // --- Computed Properties ---
-    public bool IsInteractionEnabled => !IsExporting;
-    public bool IsJpegOptionsVisible => SelectedFormat == ExportFormat.JPEG;
-    public bool IsFitsOptionsVisible => SelectedFormat == ExportFormat.FITS;
-    public bool IsVisualProcessingVisible => !IsFitsOptionsVisible;
-    public bool IsManualStretch => StretchMode == LocalizationManager.Instance["ExportStretchManual"] && IsVisualProcessingVisible;
+    [ObservableProperty] private bool _isStaticImagesOnly;
 
-    // Visibile solo se è formato FITS E ci sono più di 1 file selezionati.
+    public bool IsInteractionEnabled => !IsExporting;
+    public bool IsJpegOptionsVisible => SelectedFormat == ExportFormat.JPEG && !IsStaticImagesOnly;
+    public bool IsFitsOptionsVisible => SelectedFormat == ExportFormat.FITS && !IsStaticImagesOnly;
+    public bool IsVisualProcessingVisible => !IsFitsOptionsVisible && !IsStaticImagesOnly;
+    public bool IsManualStretch => !IsStaticImagesOnly && StretchMode == LocalizationManager.Instance["ExportStretchManual"] && IsVisualProcessingVisible;
+
     public bool CanMergeToMef => IsFitsOptionsVisible && _navigableItems.Count > 1;
 
-    // Proprietà per controllare la visibilità della navigazione nella Viewport
-    public bool IsNavigationUIVisible => ActiveRenderer != null && _navigableItems.Count > 0;
+    public bool IsNavigationUIVisible => (ActiveRenderer != null || StaticImage != null) && _navigableItems.Count > 0;
 
     private bool CanInteract() => !IsExporting;
 
@@ -136,7 +141,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         IDialogService dialogService,
         IFitsDataManager dataManager,
         IFitsRendererFactory rendererFactory,
-        IToolParametersCache parametersCache, // Aggiunto nel costruttore
+        IToolParametersCache parametersCache, 
         IEnumerable<string> sourceFilePaths)
     {
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
@@ -145,31 +150,40 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         _rendererFactory = rendererFactory;
         _parametersCache = parametersCache;
 
-        // Popolamento delle modalità di stretch per la ComboBox
         StretchModes.Add(LocalizationManager.Instance["ExportStretchAuto"]);
         StretchModes.Add(LocalizationManager.Instance["ExportStretchManual"]);
         
-        // --- LETTURA DALLA CACHE ---
         var settings = _parametersCache.Export;
         
-        SelectedFormat = settings.SelectedFormat;
         MergeIntoSingleFile = settings.MergeIntoSingleFile;
         SelectedCompression = settings.SelectedCompression;
         JpegQuality = settings.JpegQuality;
 
-        // Se abbiamo uno stretch salvato e corrisponde a uno esistente, usiamolo, altrimenti default
         if (!string.IsNullOrEmpty(settings.StretchMode) && StretchModes.Contains(settings.StretchMode))
             _stretchMode = settings.StretchMode;
         else
             _stretchMode = StretchModes[0];
 
-        // Se la cartella in cache è valida usiamola, altrimenti Documents
         if (!string.IsNullOrWhiteSpace(settings.OutputDirectory))
             OutputDirectory = settings.OutputDirectory;
         else
             OutputDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-        foreach (var path in sourceFilePaths)
+        var pathsList = sourceFilePaths.ToList();
+
+        bool isStaticImagesOnly = pathsList.All(p => p.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase));
+        IsStaticImagesOnly = isStaticImagesOnly;
+        if (isStaticImagesOnly)
+        {
+            IsFormatSelectionEnabled = false;
+            SelectedFormat = ExportFormat.PNG;
+        }
+        else
+        {
+            SelectedFormat = settings.SelectedFormat;
+        }
+
+        foreach (var path in pathsList)
         {
             var item = new ExportableItem(path);
             item.PropertyChanged += OnItemPropertyChanged;
@@ -188,13 +202,8 @@ public partial class ExportViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task ResetThresholds()
     {
-        if (_activeRenderer == null) return;
-
-        // 1. Chiamiamo direttamente il reset delle soglie
-        await _activeRenderer.ResetThresholdsAsync();
-    
-        // 2. Notifichiamo all'interfaccia che i valori sono cambiati
-        // in modo che gli slider si aggiornino visivamente
+        if (ActiveRenderer == null) return;
+        await ActiveRenderer.ResetThresholdsAsync();
         OnPropertyChanged(nameof(CurrentBlackPoint));
         OnPropertyChanged(nameof(CurrentWhitePoint));
     }
@@ -213,13 +222,12 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         _navigableItems = Items.Where(i => i.IsSelected).ToList();
         Navigator.UpdateStatus(0, _navigableItems.Count);
 
-        // Se abbiamo 1 o 0 file selezionati, disabilitiamo il Merge e notifichiamo la UI
         if (_navigableItems.Count <= 1)
         {
             MergeIntoSingleFile = false;
         }
         OnPropertyChanged(nameof(CanMergeToMef)); 
-        OnPropertyChanged(nameof(IsNavigationUIVisible)); // Notifica il cambio di stato visibilità navigazione
+        OnPropertyChanged(nameof(IsNavigationUIVisible)); 
 
         if (SelectedPreviewItem != null && _navigableItems.Contains(SelectedPreviewItem))
         {
@@ -283,32 +291,72 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         var token = _previewCts.Token;
 
         IsLoadingPreview = true;
+        
         try
         {
+            await Task.Delay(50, token);
+
+            // CORREZIONE CS1503: Manteniamo il tipo corretto del profilo sigma o applichiamo direttamente il manuale
+            SigmaContrastProfile? previousSigmaProfile = null;
+            if (ActiveRenderer != null)
+            {
+                // Solo il profilo automatico di Kometra (Sigma) è di tipo SigmaContrastProfile, 
+                // e ApplyRelativeProfile accetta solo quello per non corrompere l'istogramma.
+                if (!IsManualStretch)
+                {
+                    previousSigmaProfile = ActiveRenderer.CaptureSigmaProfile();
+                }
+                ActiveRenderer.Dispose();
+                ActiveRenderer = null;
+            }
+
+            StaticImage?.Dispose();
+            StaticImage = null;
+                
+            string ext = Path.GetExtension(item.FullPath).ToLowerInvariant();
+
+            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp")
+            {
+                using var stream = File.OpenRead(item.FullPath);
+                var bitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                
+                if (token.IsCancellationRequested) return;
+
+                StaticImage = bitmap;
+                Viewport.ImageSize = StaticImage.Size;
+                
+                if (!ImageLoadedTcs.Task.IsCompleted) ImageLoadedTcs.TrySetResult(true);
+                return;
+            }
+
             var fitsData = await _dataManager.GetDataAsync(item.FullPath);
             var imageHdu = fitsData.FirstImageHdu ?? fitsData.PrimaryHdu;
             
-            if (imageHdu == null) return;
-            if (token.IsCancellationRequested) return;
+            if (imageHdu == null || token.IsCancellationRequested) return;
 
-            // --- NUOVO: Calcolo asincrono dei limiti minimi e massimi ---
             var (min, max) = await Task.Run(() => CalculateMinMax(imageHdu.PixelData as Array), token);
             if (token.IsCancellationRequested) return;
 
             DataMin = min;
             DataMax = max;
-            // -------------------------------------------------------------
 
             var newRenderer = await _rendererFactory.CreateAsync(imageHdu.PixelData, imageHdu.Header);
+            if (token.IsCancellationRequested) { newRenderer.Dispose(); return; }
+
+            await newRenderer.InitializeAsync();
+
+            if (previousSigmaProfile != null && !IsManualStretch)
+            {
+                try { newRenderer.ApplyRelativeProfile(previousSigmaProfile); }
+                catch { await newRenderer.ResetThresholdsAsync(); }
+            }
+            else
+            {
+                await newRenderer.ResetThresholdsAsync();
+            }
 
             if (token.IsCancellationRequested) { newRenderer.Dispose(); return; }
 
-            if (_activeRenderer != null)
-                newRenderer.ApplyRelativeProfile(_activeRenderer.CaptureSigmaProfile());
-            else
-                await newRenderer.ResetThresholdsAsync();
-
-            _activeRenderer?.Dispose();
             ActiveRenderer = newRenderer;
             Viewport.ImageSize = ActiveRenderer.ImageSize;
 
@@ -317,6 +365,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
 
             if (!ImageLoadedTcs.Task.IsCompleted) ImageLoadedTcs.TrySetResult(true);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             if (!token.IsCancellationRequested)
@@ -331,7 +380,6 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         }
     }
 
-    // --- Metodo di supporto per calcolare Min e Max velocemente ---
     private static (double Min, double Max) CalculateMinMax(Array? pixelData)
     {
         if (pixelData == null || pixelData.Length == 0) return (0, 65535);
@@ -339,7 +387,6 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         double min = double.MaxValue;
         double max = double.MinValue;
 
-        // Ottimizzazione per i tipi FITS più comuni (evita conversioni lente)
         if (pixelData is float[] floatArray)
         {
             for (int i = 0; i < floatArray.Length; i++) 
@@ -348,7 +395,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
                 if (floatArray[i] > max) max = floatArray[i]; 
             }
         }
-        else if (pixelData is ushort[] ushortArray) // FITS 16-bit unsigned
+        else if (pixelData is ushort[] ushortArray) 
         {
             for (int i = 0; i < ushortArray.Length; i++) 
             { 
@@ -356,7 +403,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
                 if (ushortArray[i] > max) max = ushortArray[i]; 
             }
         }
-        else if (pixelData is short[] shortArray) // FITS 16-bit signed
+        else if (pixelData is short[] shortArray) 
         {
             for (int i = 0; i < shortArray.Length; i++) 
             { 
@@ -374,7 +421,6 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         }
         else
         {
-            // Fallback per matrici multidimensionali o tipi non previsti
             foreach (var p in pixelData)
             {
                 double val = Convert.ToDouble(p);
@@ -383,20 +429,19 @@ public partial class ExportViewModel : ObservableObject, IDisposable
             }
         }
 
-        // Protezione per immagini corrotte o completamente nere/bianche
         if (min == double.MaxValue || max == double.MinValue) return (0, 65535);
-        if (min == max) max = min + 1.0; // Evita che lo slider abbia range zero
+        if (min == max) max = min + 1.0; 
 
         return (min, max);
     }
 
-    async partial void OnStretchModeChanged(string? value) // Aggiungi il '?' per accettare null
+    // Corretto CS8826: il metodo accetta string? per concordare con l'autogenerazione
+    async partial void OnStretchModeChanged(string? value) 
     {
-        // Esci se il valore è null
-        if (_activeRenderer == null || string.IsNullOrEmpty(value)) return; 
+        if (ActiveRenderer == null || string.IsNullOrEmpty(value)) return; 
     
         if (value.Contains(LocalizationManager.Instance["ExportStretchAuto"])) 
-            await _activeRenderer.ResetThresholdsAsync();
+            await ActiveRenderer.ResetThresholdsAsync();
     
         OnPropertyChanged(nameof(CurrentBlackPoint));
         OnPropertyChanged(nameof(CurrentWhitePoint));
@@ -411,10 +456,6 @@ public partial class ExportViewModel : ObservableObject, IDisposable
 
     private bool CanExport() => !IsExporting && !string.IsNullOrWhiteSpace(OutputDirectory) && _navigableItems.Count > 0;
 
-    /// <summary>
-    /// Calcola l'estensione corretta in base al formato e alla compressione.
-    /// Importante per distinguere .fits (standard) da .fits.fz (compresso).
-    /// </summary>
     private string GetCorrectExtension()
     {
         switch (SelectedFormat)
@@ -435,9 +476,8 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         ProgressValue = 0;
         _exportCts = new CancellationTokenSource();
 
-        // --- SALVATAGGIO IN CACHE ---
         var settings = _parametersCache.Export;
-        settings.SelectedFormat = SelectedFormat;
+        if (IsFormatSelectionEnabled) settings.SelectedFormat = SelectedFormat;
         settings.MergeIntoSingleFile = MergeIntoSingleFile;
         settings.SelectedCompression = SelectedCompression;
         settings.JpegQuality = JpegQuality;
@@ -452,47 +492,68 @@ public partial class ExportViewModel : ObservableObject, IDisposable
 
         try
         {
-            // 1. Pulizia Nome File Input
             string cleanedFileName = BaseFileName;
             if (!string.IsNullOrWhiteSpace(cleanedFileName))
             {
-                // Rimuove estensioni errate se l'utente le ha digitate manualmente
-                if (cleanedFileName.EndsWith(".fits", StringComparison.OrdinalIgnoreCase))
-                    cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 5);
-                else if (cleanedFileName.EndsWith(".fit", StringComparison.OrdinalIgnoreCase))
-                    cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 4);
-                else if (cleanedFileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
-                         cleanedFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
-                    cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 4);
+                if (cleanedFileName.EndsWith(".fits", StringComparison.OrdinalIgnoreCase)) cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 5);
+                else if (cleanedFileName.EndsWith(".fit", StringComparison.OrdinalIgnoreCase)) cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 4);
+                else if (cleanedFileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || cleanedFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) cleanedFileName = cleanedFileName.Substring(0, cleanedFileName.Length - 4);
             }
 
-            // 2. Preparazione Profilo
-            ContrastProfile profile;
-            if (IsFitsOptionsVisible) profile = new AbsoluteContrastProfile(0, 65535);
-            else if (_activeRenderer != null)
+            bool isStaticImagesOnly = _navigableItems.All(p => p.FullPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || p.FullPath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase));
+
+            if (isStaticImagesOnly)
             {
-                if (IsManualStretch) profile = _activeRenderer.CaptureContrastProfile();
-                else profile = _activeRenderer.CaptureSigmaProfile();
+                // BYPASS MOTORE ASTRONOMICO: COPIA DIRETTA DEI FILE PNG DEI GRAFICI
+                int idx = 1;
+                foreach (var item in _navigableItems)
+                {
+                    if (_exportCts.Token.IsCancellationRequested) break;
+                    
+                    string ext = Path.GetExtension(item.FullPath);
+                    string finalName = string.IsNullOrWhiteSpace(cleanedFileName) 
+                        ? Path.GetFileName(item.FullPath) 
+                        : (_navigableItems.Count > 1 ? $"{cleanedFileName}_{idx}{ext}" : $"{cleanedFileName}{ext}");
+                        
+                    string destFile = Path.Combine(OutputDirectory, finalName);
+                    File.Copy(item.FullPath, destFile, true);
+                    
+                    ProgressValue = ((double)idx / _navigableItems.Count) * 100;
+                    StatusText = $"{finalName} ({idx}/{_navigableItems.Count})";
+                    idx++;
+                    
+                    await Task.Delay(50); // Piccolo delay per rendere fluida la barra della UI
+                }
             }
-            else profile = new AbsoluteContrastProfile(0, 65535);
-
-            // 3. Creazione Job Settings
-            var settingsJob = new ExportJobSettings(
-                OutputDirectory, 
-                cleanedFileName, // Nome pulito
-                SelectedFormat, 
-                MergeIntoSingleFile,
-                SelectedCompression, 
-                JpegQuality, 
-                profile);
-
-            var progress = new Progress<BatchProgressReport>(r =>
+            else
             {
-                ProgressValue = r.Percentage;
-                StatusText = $"{r.CurrentFileName} ({r.CurrentFileIndex}/{r.TotalFiles})";
-            });
+                // ELABORAZIONE STANDARD FITS
+                ContrastProfile profile;
+                if (IsFitsOptionsVisible) profile = new AbsoluteContrastProfile(0, 65535);
+                else if (ActiveRenderer != null)
+                {
+                    if (IsManualStretch) profile = ActiveRenderer.CaptureContrastProfile();
+                    else profile = (ContrastProfile)ActiveRenderer.CaptureSigmaProfile();
+                }
+                else profile = new AbsoluteContrastProfile(0, 65535);
 
-            await _coordinator.ExecuteExportAsync(_navigableItems, settingsJob, progress, _exportCts.Token);
+                var settingsJob = new ExportJobSettings(
+                    OutputDirectory, 
+                    cleanedFileName, 
+                    SelectedFormat, 
+                    MergeIntoSingleFile,
+                    SelectedCompression, 
+                    JpegQuality, 
+                    profile);
+
+                var progress = new Progress<BatchProgressReport>(r =>
+                {
+                    ProgressValue = r.Percentage;
+                    StatusText = $"{r.CurrentFileName} ({r.CurrentFileIndex}/{r.TotalFiles})";
+                });
+
+                await _coordinator.ExecuteExportAsync(_navigableItems, settingsJob, progress, _exportCts.Token);
+            }
 
             StatusText = LocalizationManager.Instance["ExportStatusDone"];
             ProgressValue = 100;
@@ -539,6 +600,7 @@ public partial class ExportViewModel : ObservableObject, IDisposable
         _exportCts?.Dispose();
         foreach(var item in Items) item.PropertyChanged -= OnItemPropertyChanged;
         Navigator.IndexChanged -= OnNavigatorIndexChanged;
-        _activeRenderer?.Dispose();
+        ActiveRenderer?.Dispose();
+        StaticImage?.Dispose();
     }
 }

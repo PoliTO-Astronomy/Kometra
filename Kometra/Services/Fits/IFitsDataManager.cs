@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Kometra.Models.Fits;
 using Kometra.Models.Fits.Structure;
+using OpenCvSharp;
 
 namespace Kometra.Services.Fits;
 
@@ -42,4 +43,8 @@ public interface IFitsDataManager
     /// Opzione Nucleare: Svuota la RAM e DELETA tutti i file temporanei su disco.
     /// </summary>
     void Clear();
+
+    // --- 5. UTILITY DI CONVERSIONE E ACCESSO PACCHETTI ---
+    Task<FitsDataPackage?> LoadDataPackageAsync(string filePath);
+    Mat GetMatFromHdu(FitsHdu hdu);
 }

@@ -139,4 +139,19 @@ public class NodeViewModelFactory : INodeViewModelFactory
             vm.Y = y;
         }
     }
+
+    public async Task<GraphNodeViewModel> CreateGraphNodeAsync(List<string> imagePaths, string csvPath, string title, double x, double y)
+    {
+        var model = new GraphNodeModel
+        {
+            ImagePaths = imagePaths,
+            CsvPath = csvPath,
+            Title = title,
+            X = x,
+            Y = y
+        };
+        var vm = new GraphNodeViewModel(model);
+        await vm.InitializeAsync();
+        return vm;
+    }
 }

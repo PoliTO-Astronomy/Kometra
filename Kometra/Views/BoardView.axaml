@@ -7,6 +7,7 @@
              xmlns:nodes="clr-namespace:Kometra.ViewModels.Nodes"
              xmlns:views="clr-namespace:Kometra.Views"
              xmlns:controls="clr-namespace:Kometra.Controls"
+             xmlns:infrastructure="clr-namespace:Kometra.Infrastructure"
              
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Kometra.Views.BoardView"
@@ -21,6 +22,13 @@
              PointerMoved="OnPointerMoved"
              PointerWheelChanged="OnPointerWheelChanged"
              SizeChanged="OnBoardSizeChanged">
+
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{Binding [MenuFitsStatistics], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                      Command="{Binding ShowFitsStatisticsWindowCommand}" />
+        </ContextMenu>
+    </UserControl.ContextMenu>
 
     <UserControl.KeyBindings>
         <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
@@ -98,6 +106,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="nodes:MultipleImagesNodeViewModel">
                         <views:MultipleImagesNodeView />
+                    </DataTemplate>
+                    <DataTemplate DataType="nodes:GraphNodeViewModel">
+                        <views:GraphNodeView />
                     </DataTemplate>
                 </ItemsControl.DataTemplates>
 

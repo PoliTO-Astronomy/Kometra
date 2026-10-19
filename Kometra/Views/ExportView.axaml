@@ -110,7 +110,9 @@
                                     <TranslateTransform X="{Binding Viewport.OffsetX}" Y="{Binding Viewport.OffsetY}"/>
                                 </TransformGroup>
                             </Canvas.RenderTransform>
-                            <Image Source="{Binding ActiveRenderer.Image}" Stretch="None" RenderOptions.BitmapInterpolationMode="None"/>
+                            
+                            <Image Source="{Binding ActiveRenderer.Image}" IsVisible="{Binding ActiveRenderer, Converter={x:Static converters:ObjectConverters.IsNotNull}}" Stretch="None" RenderOptions.BitmapInterpolationMode="None"/>
+                            <Image Source="{Binding StaticImage}" IsVisible="{Binding StaticImage, Converter={x:Static converters:ObjectConverters.IsNotNull}}" Stretch="None" RenderOptions.BitmapInterpolationMode="None"/>
                         </Canvas>
 
                         <Border IsVisible="{Binding IsLoadingPreview}" Background="#99000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
@@ -148,7 +150,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="4" Margin="10" 
                                     HorizontalAlignment="Right" VerticalAlignment="Bottom" ZIndex="1" 
                                     PointerPressed="OnControlsPointerPressed"
-                                    IsVisible="{Binding ActiveRenderer, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
+                                    IsVisible="{Binding IsNavigationUIVisible}">
                             
                             <Button Click="OnZoomOutClicked" ToolTip.Tip="{Binding [TooltipZoomOut], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="ghostBtn" Padding="5">
                                 <avalonia:MaterialIcon Kind="Minus" Width="16" Height="16"/>
@@ -160,16 +162,18 @@
                                 <avalonia:MaterialIcon Kind="FitToScreen" Width="16" Height="16"/>
                             </Button>
 
-                            <Path Data="M0,0 V18" Stroke="#666666" StrokeThickness="1" Margin="6,0" VerticalAlignment="Center"/>
+                            <Path Data="M0,0 V18" Stroke="#666666" StrokeThickness="1" Margin="6,0" VerticalAlignment="Center"
+                                  IsVisible="{Binding ActiveRenderer, Converter={x:Static converters:ObjectConverters.IsNotNull}}"/>
 
-                            <Button Command="{Binding ResetThresholdsCommand}" ToolTip.Tip="{Binding [TooltipResetStretch], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="ghostBtn" Padding="5">
+                            <Button Command="{Binding ResetThresholdsCommand}" ToolTip.Tip="{Binding [TooltipResetStretch], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="ghostBtn" Padding="5"
+                                    IsVisible="{Binding ActiveRenderer, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
                                 <avalonia:MaterialIcon Kind="Contrast" Width="16" Height="16"/>
                             </Button>
                         </StackPanel>
                         
                         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Padding="8,4" 
                                 Background="{DynamicResource OverlayTextBackgroundBrush}" CornerRadius="4"
-                                IsVisible="{Binding ActiveRenderer, Converter={x:Static converters:ObjectConverters.IsNotNull}}">
+                                IsVisible="{Binding IsNavigationUIVisible}">
                             <TextBlock Text="{Binding Viewport.Scale, StringFormat='{}{0:P0}'}" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
                         </Border>
 
@@ -201,76 +205,82 @@
                             <Separator/>
 
                             <TextBlock Text="{Binding [ExportOutputFormat], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sectionHeader"/>
-                            <ComboBox ItemsSource="{Binding AvailableFormats}" SelectedItem="{Binding SelectedFormat}" HorizontalAlignment="Stretch" Margin="0,5,0,0"/>
+                            <ComboBox ItemsSource="{Binding AvailableFormats}" 
+                                      SelectedItem="{Binding SelectedFormat}" 
+                                      IsEnabled="{Binding IsFormatSelectionEnabled}"
+                                      HorizontalAlignment="Stretch" Margin="0,5,0,0"/>
 
-                            <Separator/>
+                            <!-- Le opzioni FITS/Stretch appaiono solo se NON si tratta di soli grafici PNG/JPG statici -->
+                            <StackPanel IsVisible="{Binding !IsStaticImagesOnly}">
+                                <Separator/>
 
-                            <TextBlock Text="{Binding [ExportSaveOptions], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sectionHeader" Margin="0,0,0,10"/>
-                            
-                            <Border Background="{DynamicResource ToolWindowBackgroundBrush}" CornerRadius="4" Padding="15" BorderBrush="{DynamicResource Border.WhiteDimBrush}" BorderThickness="1">
-                                <StackPanel Spacing="15">
-                                    
-                                    <StackPanel IsVisible="{Binding IsFitsOptionsVisible}" Spacing="5">
-                                        <TextBlock Text="{Binding [ExportCompressionMethod], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
-                                        <ComboBox ItemsSource="{Binding AvailableCompressions}" 
-                                                  SelectedItem="{Binding SelectedCompression}" 
-                                                  HorizontalAlignment="Stretch"
-                                                  PointerWheelChanged="OnComboBoxPointerWheelChanged">
-                                            <ComboBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <TextBlock Text="{Binding Converter={StaticResource CompressionConverter}}"/>
-                                                </DataTemplate>
-                                            </ComboBox.ItemTemplate>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <StackPanel IsVisible="{Binding IsJpegOptionsVisible}" Spacing="5">
-                                        <Grid ColumnDefinitions="*, Auto">
-                                            <TextBlock Text="{Binding [ExportJpegQuality], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
-                                            <TextBlock Text="{Binding JpegQuality, StringFormat='{}{0}%'}" FontSize="11" FontWeight="Bold" Grid.Column="1"/>
-                                        </Grid>
-                                        <Slider Value="{Binding JpegQuality}" Minimum="10" Maximum="100"/>
-                                    </StackPanel>
-
-                                    <Separator Background="{DynamicResource Border.WhiteDimBrush}" Opacity="0.2" Margin="0,-10,0,0"
-                                               IsVisible="{Binding IsJpegOptionsVisible}"/>
-
-                                    <StackPanel IsVisible="{Binding IsVisualProcessingVisible}" Spacing="10">
-                                        <StackPanel Spacing="5">
-                                            <TextBlock Text="{Binding [ExportStretchManagement], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
-                                            <ComboBox ItemsSource="{Binding StretchModes}" SelectedItem="{Binding StretchMode}" HorizontalAlignment="Stretch" FontSize="11" Margin="0,0,0,8"
-                                                      PointerWheelChanged="OnComboBoxPointerWheelChanged"/>
-                                        </StackPanel>
+                                <TextBlock Text="{Binding [ExportSaveOptions], Source={x:Static infrastructure:LocalizationManager.Instance}}" Classes="sectionHeader" Margin="0,0,0,10"/>
+                                
+                                <Border Background="{DynamicResource ToolWindowBackgroundBrush}" CornerRadius="4" Padding="15" BorderBrush="{DynamicResource Border.WhiteDimBrush}" BorderThickness="1">
+                                    <StackPanel Spacing="15">
                                         
-                                        <StackPanel IsVisible="{Binding IsManualStretch}" Spacing="8">
-                                            <StackPanel Spacing="2">
-                                                <Grid ColumnDefinitions="*, Auto">
-                                                    <TextBlock Text="{Binding [ExportBlackPoint], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="10" Opacity="0.6"/>
-                                                    <TextBlock Text="{Binding CurrentBlackPoint, StringFormat='{}{0:N0}'}" FontSize="10" Grid.Column="1"/>
-                                                </Grid>
-                                                <Slider Value="{Binding CurrentBlackPoint}" Minimum="{Binding DataMin}" Maximum="{Binding DataMax}"/>
+                                        <StackPanel IsVisible="{Binding IsFitsOptionsVisible}" Spacing="5">
+                                            <TextBlock Text="{Binding [ExportCompressionMethod], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
+                                            <ComboBox ItemsSource="{Binding AvailableCompressions}" 
+                                                      SelectedItem="{Binding SelectedCompression}" 
+                                                      HorizontalAlignment="Stretch"
+                                                      PointerWheelChanged="OnComboBoxPointerWheelChanged">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource CompressionConverter}}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel IsVisible="{Binding IsJpegOptionsVisible}" Spacing="5">
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <TextBlock Text="{Binding [ExportJpegQuality], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
+                                                <TextBlock Text="{Binding JpegQuality, StringFormat='{}{0}%'}" FontSize="11" FontWeight="Bold" Grid.Column="1"/>
+                                            </Grid>
+                                            <Slider Value="{Binding JpegQuality}" Minimum="10" Maximum="100"/>
+                                        </StackPanel>
+
+                                        <Separator Background="{DynamicResource Border.WhiteDimBrush}" Opacity="0.2" Margin="0,-10,0,0"
+                                                   IsVisible="{Binding IsJpegOptionsVisible}"/>
+
+                                        <StackPanel IsVisible="{Binding IsVisualProcessingVisible}" Spacing="10">
+                                            <StackPanel Spacing="5">
+                                                <TextBlock Text="{Binding [ExportStretchManagement], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
+                                                <ComboBox ItemsSource="{Binding StretchModes}" SelectedItem="{Binding StretchMode}" HorizontalAlignment="Stretch" FontSize="11" Margin="0,0,0,8"
+                                                          PointerWheelChanged="OnComboBoxPointerWheelChanged"/>
                                             </StackPanel>
-                                            <StackPanel Spacing="2">
-                                                <Grid ColumnDefinitions="*, Auto">
-                                                    <TextBlock Text="{Binding [ExportWhitePoint], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="10" Opacity="0.6"/>
-                                                    <TextBlock Text="{Binding CurrentWhitePoint, StringFormat='{}{0:N0}'}" FontSize="10" Grid.Column="1"/>
-                                                </Grid>
-                                                <Slider Value="{Binding CurrentWhitePoint}" Minimum="{Binding DataMin}" Maximum="{Binding DataMax}"/>
+                                            
+                                            <StackPanel IsVisible="{Binding IsManualStretch}" Spacing="8">
+                                                <StackPanel Spacing="2">
+                                                    <Grid ColumnDefinitions="*, Auto">
+                                                        <TextBlock Text="{Binding [ExportBlackPoint], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="10" Opacity="0.6"/>
+                                                        <TextBlock Text="{Binding CurrentBlackPoint, StringFormat='{}{0:N0}'}" FontSize="10" Grid.Column="1"/>
+                                                    </Grid>
+                                                    <Slider Value="{Binding CurrentBlackPoint}" Minimum="{Binding DataMin}" Maximum="{Binding DataMax}"/>
+                                                </StackPanel>
+                                                <StackPanel Spacing="2">
+                                                    <Grid ColumnDefinitions="*, Auto">
+                                                        <TextBlock Text="{Binding [ExportWhitePoint], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="10" Opacity="0.6"/>
+                                                        <TextBlock Text="{Binding CurrentWhitePoint, StringFormat='{}{0:N0}'}" FontSize="10" Grid.Column="1"/>
+                                                    </Grid>
+                                                    <Slider Value="{Binding CurrentWhitePoint}" Minimum="{Binding DataMin}" Maximum="{Binding DataMax}"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
 
-                                    <StackPanel IsVisible="{Binding CanMergeToMef}">
-                                        <Separator Background="{DynamicResource Border.WhiteDimBrush}" Opacity="0.2" Margin="0,0,0,10"/>
-                                        <TextBlock Text="{Binding [ExportMerge], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
-                                        <CheckBox IsChecked="{Binding MergeIntoSingleFile}" 
-                                                  Content="{Binding [ExportMergeMef], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
-                                                  FontSize="12" 
-                                                  VerticalContentAlignment="Center"/>
-                                    </StackPanel>
+                                        <StackPanel IsVisible="{Binding CanMergeToMef}">
+                                            <Separator Background="{DynamicResource Border.WhiteDimBrush}" Opacity="0.2" Margin="0,0,0,10"/>
+                                            <TextBlock Text="{Binding [ExportMerge], Source={x:Static infrastructure:LocalizationManager.Instance}}" FontSize="11" Opacity="0.6"/>
+                                            <CheckBox IsChecked="{Binding MergeIntoSingleFile}" 
+                                                      Content="{Binding [ExportMergeMef], Source={x:Static infrastructure:LocalizationManager.Instance}}" 
+                                                      FontSize="12" 
+                                                      VerticalContentAlignment="Center"/>
+                                        </StackPanel>
 
-                                </StackPanel>
-                            </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
 
                         </StackPanel>
                     </ScrollViewer>

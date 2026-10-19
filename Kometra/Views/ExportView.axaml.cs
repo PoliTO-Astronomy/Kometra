@@ -57,7 +57,9 @@ public partial class ExportView : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ExportViewModel.ActiveRenderer))
+        // Controlliamo che l'immagine sia stata ricaricata (sia essa FITS o PNG)
+        if (e.PropertyName == nameof(ExportViewModel.ActiveRenderer) || 
+            e.PropertyName == nameof(ExportViewModel.StaticImage))
         {
             Dispatcher.UIThread.Post(() => CenterImage(), DispatcherPriority.Background);
         }
@@ -67,12 +69,8 @@ public partial class ExportView : Window
     {
         if (_vm != null && e.NewSize.Width > 0 && e.NewSize.Height > 0) 
         { 
-            // 1. Aggiorna le dimensioni logiche del viewport
             _vm.Viewport.ViewportSize = e.NewSize; 
-            
-            // 2. CORREZIONE: Forziamo il ricalcolo della vista (Fit to Screen)
-            // quando la finestra viene ridimensionata.
-            if (_vm.ActiveRenderer != null)
+            if (_vm.ActiveRenderer != null || _vm.StaticImage != null)
             {
                 CenterImage();
             }
@@ -89,12 +87,10 @@ public partial class ExportView : Window
         }
     }
 
-    // --- INTERAZIONE MOUSE ---
-
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var border = sender as Control;
-        if (border == null || _vm?.ActiveRenderer == null) return;
+        if (border == null || (!_vm?.IsNavigationUIVisible ?? true)) return;
 
         var properties = e.GetCurrentPoint(border).Properties;
         
@@ -130,7 +126,6 @@ public partial class ExportView : Window
 
         var props = e.GetCurrentPoint(border).Properties;
 
-        // Se l'utente rilascia i tasti fuori dalla finestra, sganciamo il pan
         if (!props.IsMiddleButtonPressed && !props.IsLeftButtonPressed)
         {
             _isPanning = false;
@@ -149,18 +144,16 @@ public partial class ExportView : Window
 
     private void OnPreviewPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (_vm?.ActiveRenderer == null) return;
+        if (_vm == null || (!_vm.IsNavigationUIVisible)) return;
         
         var visual = e.Source as Visual;
         if (visual == null) return;
 
         var modifiers = e.KeyModifiers;
 
-        // FIX CROSS-PLATFORM: Gestione Delta.X per Mac (Shift + Scroll)
         double effectiveDelta = Math.Abs(e.Delta.Y) > Math.Abs(e.Delta.X) ? e.Delta.Y : e.Delta.X;
         if (Math.Abs(effectiveDelta) < 0.0001) return;
         
-        // --- 1. ZOOM (CTRL o CMD + WHEEL) ---
         if (modifiers.HasFlag(KeyModifiers.Control) || modifiers.HasFlag(KeyModifiers.Meta))
         {
             var border = sender as Control;
@@ -170,46 +163,37 @@ public partial class ExportView : Window
             return;
         }
 
-        // --- 2. SOGLIE DINAMICHE (5% RANGE) ---
-        
-        // Calcolo del range attuale e dello step dinamico
+        // Modifica dei limiti FITS disabilitata per immagini statiche PNG
+        if (_vm.ActiveRenderer == null) return; 
+
         double currentRange = Math.Abs(_vm.CurrentWhitePoint - _vm.CurrentBlackPoint);
         double baseStep = (currentRange > 0.00001) ? currentRange * 0.05 : 1.0;
-        
-        // Step minimo per non rimanere bloccati su valori infinitesimali
         double step = Math.Max(0.0001, baseStep); 
 
-        // Direzione della rotella
         if (effectiveDelta < 0) step = -step;
 
         if (modifiers.HasFlag(KeyModifiers.Shift))
         {
-            // Modifica BLACK POINT (con protezione anti-crossing)
             double newBlack = _vm.CurrentBlackPoint + step;
-            
-            if (step > 0) // Alzando il nero
+            if (step > 0)
             {
-                // Non superare il bianco, mantenendo un piccolo cuscinetto (10% dello step)
                 double maxAllowed = _vm.CurrentWhitePoint - (step * 0.1);
                 _vm.CurrentBlackPoint = Math.Clamp(Math.Min(newBlack, maxAllowed), _vm.DataMin, _vm.DataMax);
             }
-            else // Abbassando il nero
+            else
             {
                 _vm.CurrentBlackPoint = Math.Max(_vm.DataMin, newBlack);
             }
         }
         else
         {
-            // Modifica WHITE POINT (con protezione anti-crossing)
             double newWhite = _vm.CurrentWhitePoint + step;
-            
-            if (step < 0) // Abbassando il bianco
+            if (step < 0)
             {
-                // Non scendere sotto il nero
                 double minAllowed = _vm.CurrentBlackPoint + (Math.Abs(step) * 0.1);
                 _vm.CurrentWhitePoint = Math.Clamp(Math.Max(newWhite, minAllowed), _vm.DataMin, _vm.DataMax);
             }
-            else // Alzando il bianco
+            else
             {
                 _vm.CurrentWhitePoint = Math.Min(_vm.DataMax, newWhite);
             }
@@ -218,19 +202,17 @@ public partial class ExportView : Window
         e.Handled = true;
     }
 
-    // --- PULSANTI OVERLAY ---
-
     private void OnZoomInClicked(object? sender, RoutedEventArgs e)
     {
         var border = this.FindControl<Border>("PreviewBorder");
-        if (_vm?.ActiveRenderer != null && border != null) 
+        if (_vm != null && border != null) 
             _vm.Viewport.ApplyZoomAtPoint(1.2, border.Bounds.Center);
     }
 
     private void OnZoomOutClicked(object? sender, RoutedEventArgs e)
     {
         var border = this.FindControl<Border>("PreviewBorder");
-        if (_vm?.ActiveRenderer != null && border != null) 
+        if (_vm != null && border != null) 
             _vm.Viewport.ApplyZoomAtPoint(1.0/1.2, border.Bounds.Center);
     }
 
@@ -244,7 +226,6 @@ public partial class ExportView : Window
         e.Handled = true;
     }
 
-    // --- BLOCCA ROTELLA SU COMBOBOX ---
     private void OnComboBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         e.Handled = true;
