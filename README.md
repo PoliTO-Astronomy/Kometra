@@ -39,7 +39,7 @@ The software has been engineered to maximize performance and ensure portability:
 Kometra is designed to be completely standalone. Users do not need to install any frameworks or native libraries.
 
 ### Option 1: Pre-compiled Releases (Recommended)
-You can download the ready-to-use binaries for Windows, macOS, and Linux from the [Releases page](https://github.com/Genofabio/kometra/releases).
+You can download the ready-to-use binaries for Windows, macOS, and Linux from the [Releases page](https://github.com/PoliTO-Astronomy/Kometra/releases).
 Thanks to .NET's self-contained deployment, **you do not need to install the .NET Runtime or OpenCV**. Just download, extract, and run the executable.
 
 ### Option 2: Build from source
@@ -51,7 +51,7 @@ If you prefer to compile the application yourself, explicit and reproducible aut
 **Build instructions:**
 Clone the repository and build the project using the .NET CLI. The build engine will automatically fetch all required managed and native dependencies:
 ```bash
-git clone [https://github.com/Genofabio/kometra.git](https://github.com/Genofabio/kometra.git)
+git clone [https://github.com/PoliTO-Astronomy/Kometra.git](https://github.com/PoliTO-Astronomy/Kometra.git)
 cd kometra
 dotnet build -c Release
 ```
