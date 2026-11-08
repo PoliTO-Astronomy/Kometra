@@ -36,16 +36,23 @@ The software has been engineered to maximize performance and ensure portability:
 
 ## Installation and Build
 
-Being based on .NET and Avalonia, Kometra can be compiled and run natively on **Windows, macOS, and Linux**.
+Kometra is designed to be completely standalone. Users do not need to install any frameworks or native libraries.
 
-### Prerequisites
+### Option 1: Pre-compiled Releases (Recommended)
+You can download the ready-to-use binaries for Windows, macOS, and Linux from the [Releases page](https://github.com/Genofabio/kometra/releases).
+Thanks to .NET's self-contained deployment, **you do not need to install the .NET Runtime or OpenCV**. Just download, extract, and run the executable.
+
+### Option 2: Build from source
+If you prefer to compile the application yourself, explicit and reproducible automated build instructions are provided via GitHub Actions in the `.github/workflows/` directory.
+
+**Prerequisites for building:**
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download) (or higher)
 
-### Build from source
-Clone the repository and build the project:
+**Build instructions:**
+Clone the repository and build the project using the .NET CLI. The build engine will automatically fetch all required managed and native dependencies:
 ```bash
-git clone [https://github.com/tuo-username/Kometra.git](https://github.com/tuo-username/Kometra.git)
-cd Kometra
+git clone [https://github.com/Genofabio/kometra.git](https://github.com/Genofabio/kometra.git)
+cd kometra
 dotnet build -c Release
 ```
 
